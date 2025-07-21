@@ -1,0 +1,15 @@
+fastapi
+jinja2
+uvicorn
+python-multipart
+langchain
+langchain-community
+langchain-pinecone
+langchain-google-genai
+pypdf
+python-docx
+passlib[bcrypt] 
+python-multipart
+itsdangerous
+itsdangerous
+pymongo
