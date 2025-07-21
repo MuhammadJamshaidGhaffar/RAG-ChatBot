@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.status import HTTP_302_FOUND
 
 from app.core.config import settings
-from app.services.file_service import handle_file_upload
+from app.services.file_service import process_uploaded_file
 
 templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
 
@@ -50,4 +50,4 @@ async def upload_file(file: UploadFile = File(...)):
     Returns:
         JSON response with upload status
     """
-    return await handle_file_upload(file)
+    return process_uploaded_file(file)

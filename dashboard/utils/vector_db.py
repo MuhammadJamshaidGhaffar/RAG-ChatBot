@@ -94,3 +94,26 @@ def add_documents_to_vector_store(vector_store, documents, metadatas=None):
     vector_store.add_documents(documents=docs, ids=uuids)
     
     print(f"DEBUG: Added {len(docs)} documents to the vector store")
+
+
+def get_pinecone_stats():
+    """
+    Get statistics from Pinecone index
+    
+    Returns:
+        Dictionary with Pinecone index statistics
+    """
+    try:
+        pinecone_api_key = os.environ.get("PINECONE_API_KEY")
+        pc = Pinecone(api_key=pinecone_api_key)
+        index_name = os.getenv("PINECONE_INDEX_NAME", "ask-nour")
+        
+        if pc.has_index(index_name):
+            index = pc.Index(index_name)
+            stats = index.describe_index_stats()
+            return stats
+        else:
+            return {'total_vector_count': 0}
+    except Exception as e:
+        print(f"DEBUG: Error getting Pinecone stats: {str(e)}")
+        return {'total_vector_count': 0}

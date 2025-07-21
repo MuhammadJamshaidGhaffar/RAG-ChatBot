@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard - Document Upload System</title>
+    <title>Ask Nour Dashboard - FUE Knowledge Companion</title>
     <!-- Bootstrap 5 CDN -->
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
@@ -14,207 +14,89 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
       rel="stylesheet"
     />
-    <!-- Custom CSS -->
+
+    <!-- FUE Brand CSS -->
+        <link href="/static/css/fue-brand.css" rel="stylesheet">
     <style>
-      :root {
-        --primary-dark: #0a1d37;
-        --secondary-dark: #1e3a5f;
-        --accent-blue: #007bff;
-        --accent-blue-hover: #0056b3;
-        --success-green: #28a745;
-        --danger-red: #dc3545;
-        --text-light: #f0f0f0;
-        --card-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+      /* Additional custom styles for dashboard */
+      .welcome-section {
+        background: linear-gradient(135deg, var(--fue-burgundy) 0%, var(--fue-burgundy-light) 100%);
+        color: var(--fue-white);
+        border-radius: var(--fue-radius-xl);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
       }
 
-      body {
-        background: linear-gradient(
-          135deg,
-          var(--primary-dark) 0%,
-          var(--secondary-dark) 100%
-        );
-        color: var(--text-light);
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        min-height: 100vh;
+      .welcome-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 200px;
+        height: 200px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
       }
 
-      .dashboard-container {
-        padding: 2rem 0;
-        min-height: 100vh;
-      }
-
-      .card {
-        background-color: var(--secondary-dark);
-        border: none;
-        border-radius: 16px;
-        box-shadow: var(--card-shadow);
-        backdrop-filter: blur(10px);
-        transition: transform 0.3s ease;
-      }
-
-      .card:hover {
-        transform: translateY(-5px);
-      }
-
-      .card-header {
-        background: linear-gradient(
-          45deg,
-          var(--accent-blue),
-          var(--accent-blue-hover)
-        );
-        color: white;
-        border-radius: 16px 16px 0 0 !important;
-        border: none;
-        padding: 1.5rem;
-      }
-
-      .btn-custom {
-        background: linear-gradient(
-          45deg,
-          var(--accent-blue),
-          var(--accent-blue-hover)
-        );
-        border: none;
-        color: white;
-        padding: 12px 24px;
-        border-radius: 10px;
-        transition: all 0.3s ease;
-        font-weight: 500;
-      }
-
-      .btn-custom:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0, 123, 255, 0.4);
-        color: white;
-      }
-
-      .btn-outline-custom {
-        border: 2px solid var(--accent-blue);
-        color: var(--accent-blue);
-        background: transparent;
-        padding: 12px 24px;
-        border-radius: 10px;
-        transition: all 0.3s ease;
-        font-weight: 500;
-      }
-
-      .btn-outline-custom:hover {
-        background: var(--accent-blue);
-        color: white;
-        transform: translateY(-2px);
-      }
-
-      .form-control {
-        background-color: rgba(255, 255, 255, 0.1);
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        border-radius: 10px;
-        color: var(--text-light);
-        padding: 12px 16px;
-        transition: all 0.3s ease;
-      }
-
-      .form-control:focus {
-        background-color: rgba(255, 255, 255, 0.15);
-        border-color: var(--accent-blue);
-        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-        color: var(--text-light);
-      }
-
-      .form-control::placeholder {
-        color: rgba(240, 240, 240, 0.6);
-      }
-
-      .navbar {
-        background: linear-gradient(
-          45deg,
-          var(--primary-dark),
-          var(--secondary-dark)
-        ) !important;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-      }
-
-      .navbar-brand {
-        font-weight: 600;
-        font-size: 1.5rem;
-      }
-
-      .alert {
-        border: none;
-        border-radius: 10px;
-        backdrop-filter: blur(10px);
-      }
-
-      .stats-card {
-        background: linear-gradient(
-          45deg,
-          rgba(255, 255, 255, 0.1),
-          rgba(255, 255, 255, 0.05)
-        );
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      .icon-large {
-        font-size: 3rem;
-        opacity: 0.7;
-      }
-
-      .feature-icon {
+      .user-avatar {
         width: 60px;
         height: 60px;
-        background: linear-gradient(
-          45deg,
-          var(--accent-blue),
-          var(--accent-blue-hover)
-        );
+        background: var(--fue-white);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 1rem;
         font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--fue-burgundy);
+        margin-right: 1rem;
       }
 
-      .password-strength {
-        height: 5px;
-        border-radius: 3px;
-        margin-top: 5px;
+      .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 2rem 0;
+      }
+
+      .action-card {
+        background: var(--fue-white);
+        border: 1px solid rgba(174, 15, 10, 0.1);
+        border-radius: var(--fue-radius-lg);
+        padding: 1.5rem;
+        text-align: center;
         transition: all 0.3s ease;
+        cursor: pointer;
       }
 
-      .strength-weak {
-        background-color: var(--danger-red);
-      }
-      .strength-medium {
-        background-color: #ffc107;
-      }
-      .strength-strong {
-        background-color: var(--success-green);
-      }
-
-      @media (max-width: 768px) {
-        .dashboard-container {
-          padding: 1rem;
-        }
-
-        .card {
-          margin-bottom: 1rem;
-        }
+      .action-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--fue-shadow-lg);
+        border-color: var(--fue-burgundy);
       }
     </style>
+
   </head>
   <body>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
       <div class="container">
         <a class="navbar-brand" href="/">
-          <i class="bi bi-cloud-upload"></i> Document Dashboard
+          <div class="brand-container">
+            <img src="/static/images/logo-secondary.png" alt="Ask Nour Logo" class="brand-logo">
+            <div class="brand-text">
+              <div class="brand-title">Ask Nour</div>
+              <div class="brand-subtitle">FUE Knowledge Companion</div>
+            </div>
+          </div>
         </a>
         <div class="navbar-nav ms-auto">
           <span class="navbar-text me-3">
             <i class="bi bi-person-circle"></i> Welcome, {{ user.username }}
           </span>
-          <a class="btn btn-outline-light btn-sm" href="/logout">
+          <a class="btn btn-fue-white btn-sm" href="/logout">
             <i class="bi bi-box-arrow-right"></i> Logout
           </a>
         </div>
@@ -225,43 +107,82 @@
       <!-- Welcome Section -->
       <div class="row mb-4">
         <div class="col-12">
-          <div class="card">
-            <div class="card-body text-center py-5">
-              <div class="feature-icon">
-                <i class="bi bi-speedometer2"></i>
+          <div class="welcome-section">
+            <div class="row align-items-center">
+              <div class="col-md-8">
+                <div class="d-flex align-items-center">
+                  <div class="user-avatar">
+                    {{ user.username[0].upper() }}
+                  </div>
+                  <div>
+                    <h2 class="mb-1">Welcome back, {{ user.username }}!</h2>
+                    <p class="mb-0 opacity-75">Upload documents to enhance Ask Nour's knowledge base and improve AI responses.</p>
+                  </div>
+                </div>
               </div>
-              <h2 class="card-title mb-3">Dashboard Overview</h2>
-              <p class="card-text mb-4">
-                Manage your documents and account settings from this central
-                hub.
-              </p>
-              <div class="row text-center">
-                <div class="col-md-4 mb-3">
-                  <div class="stats-card card h-100">
-                    <div class="card-body">
-                      <i
-                        class="bi bi-file-earmark-text icon-large text-primary"
-                      ></i>
-                      <h5>Documents</h5>
-                      <p class="text-muted">Upload & Index Files</p>
-                    </div>
-                  </div>
+              <div class="col-md-4 text-end">
+                <div class="d-flex flex-column align-items-end">
+                  <small class="opacity-75">Last login</small>
+                  <strong>{{ current_time.strftime('%B %d, %Y') }}</strong>
                 </div>
-                <div class="col-md-4 mb-3">
-                  <div class="stats-card card h-100">
-                    <div class="card-body">
-                      <i class="bi bi-shield-lock icon-large text-success"></i>
-                      <h5>Security</h5>
-                      <p class="text-muted">Manage Your Password</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-md-4 mb-3">
-                  <div class="stats-card card h-100">
-                    <div class="card-body">
-                      <i class="bi bi-gear icon-large text-info"></i>
-                      <h5>Settings</h5>
-                      <p class="text-muted">Configure Preferences</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <h3 class="page-title">Quick Actions</h3>
+          <div class="quick-actions">
+            <div class="action-card" onclick="window.location.href='/upload-page'">
+              <div class="feature-icon">
+                <i class="bi bi-cloud-upload"></i>
+              </div>
+              <h5 class="mb-2">Upload Documents</h5>
+              <p class="text-muted mb-0">Add knowledge to Ask Nour's database</p>
+            </div>
+            <div class="action-card" onclick="showPasswordModal()">
+              <div class="feature-icon">
+                <i class="bi bi-shield-lock"></i>
+              </div>
+              <h5 class="mb-2">Change Password</h5>
+              <p class="text-muted mb-0">Update your security</p>
+            </div>
+            <div class="action-card" onclick="window.location.href='/'">
+              <div class="feature-icon">
+                <i class="bi bi-chat-dots"></i>
+              </div>
+              <h5 class="mb-2">Chat with Ask Nour</h5>
+              <p class="text-muted mb-0">Ask questions about your documents</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistics Overview -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <h3 class="page-title">Ask Nour Knowledge Base Status</h3>
+        </div>
+        <div class="col-md-6 mb-3">
+          <div class="stats-card card h-100">
+            <div class="card-body text-center">
+              <div class="stats-number">{{ stats.total_vectors|default(0) }}</div>
+              <div class="stats-label">Total Knowledge Vectors</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 mb-3">
+          <div class="stats-card card h-100">
+            <div class="card-body text-center">
+              <div class="stats-number">{{ stats.last_upload|default('Never') }}</div>
+              <div class="stats-label">Last Knowledge Update</div>
+            </div>
+          </div>
+        </div>
+      </div>
                     </div>
                   </div>
                 </div>
@@ -278,13 +199,12 @@
           <div class="card h-100">
             <div class="card-header">
               <h5 class="mb-0">
-                <i class="bi bi-cloud-upload"></i> Upload Documents
+                <i class="bi bi-brain"></i> Add Knowledge to Ask Nour
               </h5>
             </div>
             <div class="card-body">
               <p class="card-text mb-4">
-                Upload PDF, TXT, or DOCX files to index them in the vector
-                database.
+                Upload documents to expand Ask Nour's knowledge base. Files are converted to embeddings and stored in Pinecone for intelligent retrieval.
               </p>
 
               <form id="uploadForm">
@@ -298,12 +218,12 @@
                     accept=".pdf,.txt,.docx"
                     required
                   />
-                  <div class="form-text text-light">
-                    Supported formats: PDF, TXT, DOCX
+                  <div class="form-text text-muted">
+                    Supported formats: PDF, TXT, DOCX (converted to embeddings, not stored locally)
                   </div>
                 </div>
-                <button type="submit" class="btn btn-custom w-100">
-                  <i class="bi bi-upload"></i> Upload & Index
+                <button type="submit" class="btn btn-fue-primary w-100">
+                  <i class="bi bi-upload"></i> Process & Add to Knowledge Base
                 </button>
               </form>
 
@@ -376,12 +296,56 @@
                     required
                   />
                 </div>
-                <button type="submit" class="btn btn-custom w-100">
+                <button type="submit" class="btn btn-fue-primary w-100">
                   <i class="bi bi-shield-check"></i> Update Password
                 </button>
               </form>
 
               <div id="passwordMessage" class="mt-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Storage Settings -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0"><i class="bi bi-chat-dots"></i> Chat Storage Settings</h5>
+            </div>
+            <div class="card-body">
+              <p class="text-muted">
+                Configure how Ask Nour stores conversation data in the database.
+              </p>
+              
+              <div class="form-check form-switch mb-3">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  id="chatStorageToggle"
+                  checked
+                >
+                <label class="form-check-label" for="chatStorageToggle">
+                  <strong id="toggleLabel">Save Full Conversations</strong>
+                </label>
+                <div class="form-text">
+                  <span id="toggleDescription">
+                    Currently saving complete chat conversations (questions + answers) to MongoDB
+                  </span>
+                </div>
+              </div>
+              
+              <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                <strong>Options:</strong>
+                <ul class="mb-0 mt-2">
+                  <li><strong>Full Conversations:</strong> Saves both questions and AI responses</li>
+                  <li><strong>Questions Only:</strong> Saves only user questions for privacy</li>
+                </ul>
+              </div>
+              
+              <div id="chatStorageMessage" class="mt-3"></div>
             </div>
           </div>
         </div>
@@ -400,7 +364,7 @@
               <div class="row text-center">
                 <div class="col-md-3 mb-3">
                   <button
-                    class="btn btn-outline-custom w-100"
+                    class="btn btn-fue-secondary w-100"
                     onclick="window.location.href='/upload-page'"
                   >
                     <i class="bi bi-house"></i><br />
@@ -409,7 +373,7 @@
                 </div>
                 <div class="col-md-3 mb-3">
                   <button
-                    class="btn btn-outline-custom w-100"
+                    class="btn btn-fue-secondary w-100"
                     onclick="document.getElementById('fileInput').click()"
                   >
                     <i class="bi bi-plus-circle"></i><br />
@@ -418,7 +382,7 @@
                 </div>
                 <div class="col-md-3 mb-3">
                   <button
-                    class="btn btn-outline-custom w-100"
+                    class="btn btn-fue-secondary w-100"
                     onclick="document.getElementById('currentPassword').focus()"
                   >
                     <i class="bi bi-gear"></i><br />
@@ -427,7 +391,7 @@
                 </div>
                 <div class="col-md-3 mb-3">
                   <button
-                    class="btn btn-outline-custom w-100"
+                    class="btn btn-fue-secondary w-100"
                     onclick="window.location.href='/logout'"
                   >
                     <i class="bi bi-box-arrow-right"></i><br />
@@ -565,6 +529,16 @@
           }
         });
 
+      // Show password modal function
+      function showPasswordModal() {
+        document.getElementById('currentPassword').focus();
+        // Smooth scroll to password section
+        document.getElementById('currentPassword').scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+
       // Helper function to show messages
       function showMessage(container, message, type) {
         container.innerHTML = `
@@ -594,6 +568,87 @@
           });
         }, 5000);
       });
+
+        // Chat Storage Toggle Functionality
+      document.addEventListener("DOMContentLoaded", function () {
+        const toggle = document.getElementById("chatStorageToggle");
+        const toggleLabel = document.getElementById("toggleLabel");
+        const toggleDescription = document.getElementById("toggleDescription");
+        const messageBox = document.getElementById("chatStorageMessage");
+
+        // Load current setting
+        loadChatStorageSetting();
+
+        // Handle toggle change
+        toggle.addEventListener("change", function () {
+          updateChatStorageSetting(this.checked);
+        });
+
+        async function loadChatStorageSetting() {
+          try {
+            const response = await fetch("/api/config/chat-storage");
+            const data = await response.json();
+
+            if (data.success) {
+              const setting = data.setting;
+              toggle.checked = setting.save_full_chat;
+              updateToggleDisplay(setting.save_full_chat);
+            }
+          } catch (error) {
+            console.error("Error loading chat storage setting:", error);
+          }
+        }
+
+        async function updateChatStorageSetting(saveFullChat) {
+          try {
+            const response = await fetch("/api/config/chat-storage", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                save_full_chat: saveFullChat
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+              updateToggleDisplay(saveFullChat);
+              showMessage(messageBox, data.message, "success");
+            } else {
+              showMessage(messageBox, data.message, "danger");
+              // Revert toggle if failed
+              toggle.checked = !saveFullChat;
+            }
+          } catch (error) {
+            showMessage(messageBox, "Error updating setting: " + error.message, "danger");
+            // Revert toggle if failed
+            toggle.checked = !saveFullChat;
+          }
+        }
+
+        function updateToggleDisplay(saveFullChat) {
+          if (saveFullChat) {
+            toggleLabel.textContent = "Save Full Conversations";
+            toggleDescription.textContent = "Currently saving complete chat conversations (questions + answers) to MongoDB";
+          } else {
+            toggleLabel.textContent = "Save Questions Only";
+            toggleDescription.textContent = "Currently saving only user questions to MongoDB (responses not stored)";
+          }
+        }
+
+        // Auto-hide alerts after 5 seconds
+        setTimeout(function () {
+          const alerts = document.querySelectorAll(".alert");
+          alerts.forEach((alert) => {
+            if (alert.classList.contains("show")) {
+              const bsAlert = new bootstrap.Alert(alert);
+              bsAlert.close();
+            }
+          });
+        }, 5000);
+      });  
     </script>
   </body>
 </html>

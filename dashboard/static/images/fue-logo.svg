@@ -1,0 +1,19 @@
+<svg width="120" height="40" viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="120" height="40" fill="#AE0F0A" rx="4"/>
+  
+  <!-- White accent -->
+  <rect x="0" y="36" width="120" height="4" fill="#FFFFFF" rx="2"/>
+  
+  <!-- Ask Nour Text -->
+  <text x="35" y="16" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#FFFFFF">Ask Nour</text>
+  <text x="35" y="28" font-family="Arial, sans-serif" font-size="7" fill="#FFFFFF" opacity="0.9">FUE Knowledge Companion</text>
+  
+  <!-- Icon/Symbol -->
+  <circle cx="15" cy="12" r="4" fill="#FFFFFF"/>
+  <circle cx="15" cy="20" r="3" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="15" cy="28" r="2" fill="#FFFFFF" opacity="0.6"/>
+  
+  <!-- Chat bubble icon -->
+  <path d="M8 8 Q6 8 6 10 L6 16 Q6 18 8 18 L22 18 L26 22 L26 18 Q26 16 24 16 L24 10 Q24 8 22 8 Z" fill="#FFFFFF" opacity="0.3"/>
+</svg>

@@ -13,6 +13,7 @@ from app.middleware.auth import AuthMiddleware
 from app.routes.auth import login_page, login_submit, logout
 from app.routes.main import home, upload_file, upload_page
 from app.routes.dashboard import dashboard, change_password
+from app.routes.config import get_chat_storage_setting, update_chat_storage_setting, get_all_settings, ChatStorageToggle
 
 
 def create_app() -> FastAPI:
@@ -97,6 +98,25 @@ async def post_change_password(request: Request, current_password: str = Form(..
                               new_password: str = Form(...), confirm_password: str = Form(...)):
     """Change password endpoint"""
     return await change_password(request, current_password, new_password, confirm_password)
+
+
+# Configuration routes
+@app.get("/api/config/chat-storage")
+async def get_chat_storage_config(request: Request):
+    """Get chat storage configuration"""
+    return await get_chat_storage_setting(request)
+
+
+@app.post("/api/config/chat-storage")
+async def post_chat_storage_config(toggle_data: ChatStorageToggle):
+    """Update chat storage configuration"""
+    return await update_chat_storage_setting(toggle_data)
+
+
+@app.get("/api/config/all")
+async def get_all_config(request: Request):
+    """Get all configuration settings"""
+    return await get_all_settings(request)
 
 
 # ==================== APPLICATION STARTUP ====================

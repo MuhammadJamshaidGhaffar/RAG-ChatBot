@@ -2,6 +2,7 @@
 Dashboard route handlers
 """
 
+from datetime import datetime
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -9,6 +10,7 @@ from starlette.status import HTTP_302_FOUND
 from fastapi.responses import JSONResponse
 
 from app.services.auth_service import update_password, verify_user
+from app.services.file_service import get_knowledge_base_stats
 from app.core.config import settings
 
 templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
@@ -16,7 +18,7 @@ templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
 
 async def dashboard(request: Request) -> HTMLResponse:
     """
-    Display dashboard page with user info and options
+    Display dashboard page with user info and Ask Nour statistics
     
     Args:
         request: FastAPI request object
@@ -28,9 +30,14 @@ async def dashboard(request: Request) -> HTMLResponse:
     if not user:
         return RedirectResponse("/login", status_code=HTTP_302_FOUND)
     
+    # Get real statistics from Pinecone
+    stats = get_knowledge_base_stats()
+    
     return templates.TemplateResponse("dashboard.html", {
         "request": request, 
-        "user": user
+        "user": user,
+        "current_time": datetime.now(),
+        "stats": stats
     })
 
 
