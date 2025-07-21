@@ -5,15 +5,16 @@ from langchain_core.messages import  HumanMessage
 from langchain_core.messages.utils import count_tokens_approximately
 
 from constants import MAX_INPUT_TOKENS
-from utils import trim_chat_history, run_chain_with_retry, get_vector_store, create_llm_chain, send_error_message
+from utils import trim_chat_history, run_chain_with_retry, create_llm_chain, send_error_message
 from kyc_util import handle_kyc, send_welcome_message
+from vectordb_util import get_pinecone_vector_store
 
 if not os.getenv("GOOGLE_API_KEY"):
     error_msg = "❌ GOOGLE_API_KEY missing"
     print(error_msg)
     raise ValueError(error_msg)
 
-vectordb = get_vector_store()
+vectordb = get_pinecone_vector_store()
 chain = create_llm_chain(vectordb)
 
 @cl.on_chat_start

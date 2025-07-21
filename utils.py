@@ -58,7 +58,7 @@ def trim_chat_history(raw_history: list[dict]):
     return trimmed
 
 
-def get_vector_store():
+def get_faiss_vector_store():
     print("DEBUG: Starting get_vector_store()")
     vectordb = None
 
