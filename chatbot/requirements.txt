@@ -3,5 +3,6 @@ langchain
 langchain-community
 langchain-huggingface
 faiss-cpu
+langchain-pinecone
 langchain-google-genai
 python-dotenv
