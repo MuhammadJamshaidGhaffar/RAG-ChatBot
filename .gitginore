@@ -1,0 +1,4 @@
+venv/
+faiss/
+.env
+.env.*
