@@ -46,7 +46,7 @@ async def handle_message(message: cl.Message):
 
             kyc = cl.user_session.get("kyc")
             print(f"DEBUG: Final KYC data: {kyc}")
-            await cl.Message(content=f"✅ Great, {kyc['name']}! Weclome. You can now ask questions related to university admissions.").send()
+            await cl.Message(content=f"✅ **Excellent, {kyc['name']}!** 🎉\n\nWelcome to **Ask Nour** - Your FUE Knowledge Companion! \n\nYour profile has been successfully set up for the **{kyc.get('faculty', 'your chosen')}** faculty. I'm now ready to assist you with all your Future University in Egypt questions and guide you through the admissions process.\n\n🚀 **Let's explore FUE together!**").send()
 
             # clear all context history
             print("DEBUG: Clearing chat context after KYC completion")

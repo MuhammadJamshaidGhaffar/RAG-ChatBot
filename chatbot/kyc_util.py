@@ -55,15 +55,19 @@ async def send_welcome_message():
     cl.user_session.set("kyc", {})
     faculty_list = "\n- " + "\n- ".join(FACULTIES)
     welcome = f"""
-👋 Welcome to Ask Nour! I am your Assistant in assisting university admissions. Before we start please provide the following details:
-- Full name
-- Email address
-- Mobile number
-- Faculty of interest
+🎓 **Welcome to Ask Nour - Your FUE Knowledge Companion!**
 
-🎓 Valid faculties are:{faculty_list}
+I'm here to assist you with all your **Future University in Egypt (FUE)** inquiries. Before we begin exploring the exciting opportunities at FUE, please provide the following details:
 
-You can enter all details at once or provide them one by one.
+**📝 Required Information:**
+- ✅ **Full Name**
+- ✉️ **Email Address** 
+- 📱 **Mobile Number**
+- 🏛️ **Faculty of Interest**
+
+**� Available FUE Faculties:**{faculty_list}
+
+You can enter all details at once or provide them one by one. Let's get started on your FUE journey! 🚀
 """
     await cl.Message(content=welcome).send()
 

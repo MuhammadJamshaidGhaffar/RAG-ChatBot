@@ -1,0 +1,8 @@
+venv/
+faiss/
+faiss_index/
+.env
+.env.*
+__pycache__/
+**/__pycache__/
+.chainlit/translations/
