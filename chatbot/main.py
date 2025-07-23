@@ -7,9 +7,10 @@ from langchain_core.messages.utils import count_tokens_approximately
 from constants import MAX_INPUT_TOKENS,END_TOKEN
 from utils import trim_chat_history, run_chain_with_retry, create_llm_chain, send_error_message, extract_variables_from_response, search_media_by_keywords
 from utils import get_media_selector_llm_chain
-from kyc_util import handle_kyc, send_welcome_message
+from kyc_util import handle_kyc, send_welcome_message, save_user_data_to_collection
 from vectordb_util import get_pinecone_vector_store
 from mongo_util import get_mongo_client
+from storage_util import get_storage_config, save_interaction_data
 
 if not os.getenv("GOOGLE_API_KEY"):
     error_msg = "❌ GOOGLE_API_KEY missing"
@@ -29,7 +30,11 @@ async def on_chat_start():
 
     cl.user_session.set("kyc", {})
     cl.user_session.set("is_kyc_complete", False)
-    print("DEBUG: Initialized user session - KYC: {}, is_kyc_complete: False")
+    
+    # Get storage configuration once at session start
+    storage_mode = get_storage_config()
+    cl.user_session.set("storage_mode", storage_mode)
+    print(f"DEBUG: Initialized user session - KYC: {{}}, is_kyc_complete: False, storage_mode: {storage_mode}")
 
 @cl.on_message
 async def handle_message(message: cl.Message):
@@ -51,7 +56,14 @@ async def handle_message(message: cl.Message):
 
             kyc = cl.user_session.get("kyc")
             print(f"DEBUG: Final KYC data: {kyc}")
-            await cl.Message(content=f"✅ **Excellent, {kyc['name']}!** 🎉\n\nWelcome to **Ask Nour** - Your FUE Knowledge Companion! \n\nYour profile has been successfully set up for the **{kyc.get('faculty', 'your chosen')}** faculty. I'm now ready to assist you with all your Future University in Egypt questions and guide you through the admissions process.\n\n🚀 **Let's explore FUE together!**").send()
+            
+            # Save user data to USERS_COLLECTION
+            print("DEBUG: Saving user data to USERS_COLLECTION...")
+            save_success = save_user_data_to_collection(kyc)
+            if save_success:
+                print("DEBUG: User data saved successfully")
+            else:
+                print("DEBUG: Failed to save user data")
 
             # clear all context history
             print("DEBUG: Clearing chat context after KYC completion")
@@ -130,7 +142,7 @@ async def handle_message(message: cl.Message):
             extracted_image_urls = []
             extracted_video_urls = []
 
-            if len(images) > 3 and len(videos) > 3:
+            if len(images) > 3 or len(videos) > 3:
                 
                 response = media_selector_chain.invoke({
                     "input": user_input,
@@ -139,19 +151,16 @@ async def handle_message(message: cl.Message):
                     "images" : ", ".join([f"{image['image_url']} ({image.get('description', 'No description')})" for image in images])
                 })
 
-                response_text = response.content
-                print(f"DEBUG: LLM response: {response_text}")
+                response_text_2 = response.content
+                print(f"DEBUG: LLM response: {response_text_2}")
                 
                 try:
                     print("DEBUG: Attempting to parse LLM response for media extraction")
-                    extracted = json.loads(response_text.content)
+                    extracted = json.loads(response_text_2)
                     print(f"DEBUG: Extracted data: {extracted}")
 
                     extracted_image_urls = extracted["images"]
                     extracted_video_urls = extracted["videos"]
-
-                    if not extracted_image_urls or not extracted_video_urls:
-                        raise ValueError("No images or videos extracted from response")
                     
                 except Exception as error:
                     print(f"DEBUG: Error parsing LLM response: {error}")
@@ -174,17 +183,23 @@ async def handle_message(message: cl.Message):
                 # extracted urls are in form of ["Facebook:<url>", "YouTube:<url>", ...]
                 for i, video_url in enumerate(extracted_video_urls):
                     print(f"DEBUG: Processing video URL {i}: {video_url}")
-                    video_url_lower = video_url.lower()
+                    video_url_lower = video_url.lower().strip()
                     if video_url_lower.startswith("facebook:"):
+                        print(f"DEBUG: Detected Facebook video URL: {video_url}")
                         video_url_clean = video_url[len("Facebook:"):]
-                        elements.append(cl.CustomElement(name="FacebookVideoEmbed", url=video_url_clean, display="inline"))
+                        elements.append(cl.CustomElement(name="FacebookVideoEmbed", props={"url": video_url_clean}, display="inline"))
                     elif video_url_lower.startswith("youtube:"):
+                        print(f"DEBUG: Detected YouTube video URL: {video_url}")
                         video_url_clean = video_url[len("YouTube:"):]
-                        elements.append(cl.CustomElement(name="YouTubeVideoEmbed", url=video_url_clean, display="inline"))
+                        elements.append(cl.CustomElement(name="YouTubeVideoEmbed", props={"url": video_url_clean}, display="inline"))
                     else:
                         print(f"DEBUG: Unknown video URL format: {video_url}, skipping")
 
             await cl.Message(content=extracted["text"], elements=elements).send()
+
+        # Save interaction data based on config (retrieved once at session start)
+        storage_mode = cl.user_session.get("storage_mode")
+        save_interaction_data(user_input, response_text.split(END_TOKEN)[0], storage_mode)
 
         
     except Exception as e:

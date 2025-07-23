@@ -17,6 +17,9 @@ const FacebookVideoEmbed = () => {
   const width = props.width || 500; // Default width for the widget
 
 
+  print(`DEBUG: ============ FacebookVideoEmbed Props ============`);
+  print(`DEBUG: Facebook Video URL: ${url}, Width: ${width}, Title: ${title}, Description: ${description}`);
+
   const handleClick = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };

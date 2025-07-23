@@ -9,27 +9,56 @@ import React from "react";
  *   - rel: boolean (optional, show related videos, default: false)
  *   - autoplay: boolean (optional, default: false)
  */
-const YoutubeVideoEmbed = ({ 
-}) => {
+const YoutubeVideoEmbed = () => {
+  const { url, width = "80%", height = "45%", rel = false, autoplay = false } = props;
 
-url = props.url;
-const width = props.width || "80%"; // Responsive width for chat
-const height = props.height || "45%"; // Responsive height for chat
-const rel = props.rel || false;
-const autoplay = props.autoplay || false;
-
+  print(`DEBUG: ============ YoutubeVideoEmbed Props ============`);
+  print(`DEBUG: YouTube URL: ${url}, Width: ${width}, Height: ${height}, Rel: ${rel}, Autoplay: ${autoplay}`);
 
   // Extract video ID from YouTube URL
   const getVideoId = (url) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+    // Check if url is valid
+    if (!url || typeof url !== 'string') {
+      return null;
+    }
+    
+    // Multiple regex patterns to handle different YouTube URL formats
+    const patterns = [
+      // youtu.be format
+      /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
+      // youtube.com/watch format
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+      // youtube.com/embed format
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+      // General fallback pattern
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        // For the first 3 patterns, video ID is in match[1]
+        if (match[1] && match[1].length === 11) {
+          return match[1];
+        }
+        // For the fallback pattern, video ID is in match[2]
+        if (match[2] && match[2].length === 11) {
+          return match[2];
+        }
+      }
+    }
+    
+    return null;
   };
 
   const videoId = getVideoId(url);
 
+  if (!url) {
+    return <div style={{ padding: "10px", color: "#666" }}>No YouTube URL provided</div>;
+  }
+
   if (!videoId) {
-    return <div>Invalid YouTube URL</div>;
+    return <div style={{ padding: "10px", color: "#666" }}>Invalid YouTube URL: {url}</div>;
   }
 
   // Build embed URL with parameters

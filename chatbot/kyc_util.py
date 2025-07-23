@@ -1,8 +1,11 @@
 import chainlit as cl
 import re
 import json
+import datetime
 from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
+from mongo_util import get_mongo_client
+from constants import USERS_COLLECTION
 
 FACULTIES = [
     "oral and dental",
@@ -125,6 +128,37 @@ You can enter all details at once or provide them one by one. Let's get started 
         content=welcome,
         elements=[logo_image]
     ).send()
+
+
+def save_user_data_to_collection(kyc_data):
+    """Save user data to USERS_COLLECTION when KYC is complete."""
+    try:
+        mongo_db = get_mongo_client()
+        users_collection = mongo_db[USERS_COLLECTION]
+        session_id = cl.user_session.get("id", "unknown")
+        
+        user_doc = {
+            "session_id": session_id,
+            "name": kyc_data.get("name"),
+            "email": kyc_data.get("email"),
+            "mobile": kyc_data.get("mobile"),
+            "faculty": kyc_data.get("faculty"),
+            "created_at": datetime.datetime.now(datetime.timezone.utc),
+        }
+        
+        # Use upsert to avoid duplicates for the same session
+        users_collection.update_one(
+            {"session_id": session_id},
+            {"$set": user_doc},
+            upsert=True
+        )
+        
+        print(f"DEBUG: Saved user data to USERS_COLLECTION for session {session_id}")
+        return True
+        
+    except Exception as e:
+        print(f"DEBUG: Error saving user data to collection: {e}")
+        return False
 
 
 

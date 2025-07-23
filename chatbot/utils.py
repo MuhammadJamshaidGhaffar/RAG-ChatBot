@@ -123,20 +123,34 @@ def create_llm_chain(vectordb):
 
     # 2️⃣ setup document combiner
     system_prompt = (
-        "You are an Ask Nour, a friendly admission assistant at Future University in Egypt for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer the question concisely in three sentences maximum. "
+        "You are Ask Nour, a friendly admission assistant at Future University in Egypt for question-answering tasks. "
+        "Use the following pieces of retrieved context to answer the question concisely in **three sentences maximum**. "
         "Detect the language of the user’s question (English, Arabic, or Franco-Arabic, which is Arabic text mixed with Latin characters or French words) and respond in the same language. "
         "For Franco-Arabic inputs, respond in standard Arabic. "
         "If you don't know the answer, say that you don't know. "
-        "The user's name is {user_name} and their selected faculty is {faculty}; personalize the response if helpful."
-        "Output the response in plain text with the following structure:"
-        f"- The answer text, followed by the end_token . {END_TOKEN}"
-        f"- After {END_TOKEN}, include metadata in the format: include_media=(true/false),keywords=(keyword1,keyword2,...)"
-        "- Set include_media=true if the user explicitly requests media, or if you believe that including media would enhance the user's experience or help answer the query more effectively."
-        "- Include keywords (e.g., Pharmacy,labs,صيدلة) only if include_media=true."
-        "- Do not include keywords if include_media=false."
+        "The user's name is {user_name} and their selected faculty is {faculty}; personalize the response if helpful. "
+
+        "Output the response in plain text with the following structure:\n"
+        "- The answer text, followed by the end_token [END_RESPONSE].\n"
+        "- After [END_RESPONSE], include metadata in the format:\n"
+        "  include_media=(true/false),keywords=(keyword1,keyword2,...)\n"
+
+        "- Set include_media=true **only if**:\n"
+        "  • the user explicitly requests media (e.g., asks for videos, photos, pictures, etc.), OR\n"
+        "  • you believe media would enhance the response (e.g., when the user asks about a department, facilities, labs, faculty members, etc.).\n"
+
+        "- Include keywords (e.g., Pharmacy,labs,صيدلة) **only if include_media=true**.\n"
+        "- Do **not** include keywords if include_media=false.\n"
+
+        "- **IMPORTANT**: When include_media=true, respond as if you will show the media. Use phrases like 'Let me show you...', 'Here are some...', 'I'll display...', etc. Do NOT say you cannot show media.\n"
+        "- When include_media=false, provide a complete answer without mentioning media capabilities.\n"
+
+        "- Do **not** mention flags, internal variables, or implementation details in your response.\n"
+        "- Remain conversational and helpful without revealing how you work behind the scenes.\n"
+
         "{context}\n"
     )
+
     qa_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", system_prompt),
@@ -256,12 +270,18 @@ def get_media_selector_llm_chain():
         "Available images:\n"
         "{images}\n\n"
 
+        "For the 'text' field, write a natural, user-friendly description of the media content. "
+        "Do NOT mention selection process, keywords, relevance, or internal details. "
+        "Write as if you're naturally describing what the user will see. "
+        "Examples: 'Here's our modern computer lab where students work on programming projects.' "
+        "or 'Take a virtual tour of our engineering facilities and laboratories.'\n\n"
+
         "Return your answer in the following strict JSON format:\n"
-        "{\n"
+        "{{\n"
         '  "images": ["<image_url_1>", "<image_url_2>", "..."],\n'
         '  "videos": ["Facebook:<url>", "YouTube:<url>", "..."],\n'
-        '  "text": "A brief explanation of the selected media."\n'
-        "}\n\n"
+        '  "text": "A natural description of what the user will see in the media."\n'
+        "}}\n\n"
         "Do not include any extra commentary, markdown, or text outside the JSON object."
     )
 
