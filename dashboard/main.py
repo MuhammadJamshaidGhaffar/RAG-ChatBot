@@ -34,7 +34,6 @@ def create_app() -> FastAPI:
     app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)  # Session management
     
     # Mount static files
-    app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads")
     app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
     
     # Create necessary directories
@@ -89,8 +88,29 @@ async def get_upload_page(request: Request):
 
 @app.post("/upload")
 async def post_upload(file: UploadFile = File(...)):
-    """File upload endpoint"""
+    """Legacy file upload endpoint (documents only)"""
     return await upload_file(file)
+
+
+@app.post("/upload/document")
+async def post_upload_document(file: UploadFile = File(...)):
+    """Document upload endpoint for knowledge base"""
+    from app.services.file_service import process_document_upload
+    return process_document_upload(file)
+
+
+@app.post("/upload/images-csv")
+async def post_upload_images_csv(file: UploadFile = File(...)):
+    """Images CSV upload endpoint"""
+    from app.services.file_service import process_images_csv_upload
+    return process_images_csv_upload(file)
+
+
+@app.post("/upload/videos-csv")
+async def post_upload_videos_csv(file: UploadFile = File(...)):
+    """Videos CSV upload endpoint"""
+    from app.services.file_service import process_videos_csv_upload
+    return process_videos_csv_upload(file)
 
 
 @app.post("/change-password")
@@ -126,6 +146,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app", 
         host="127.0.0.1", 
-        port=8000, 
+        port=9000, 
         reload=settings.DEBUG
     )

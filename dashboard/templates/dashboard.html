@@ -150,7 +150,7 @@
               <h5 class="mb-2">Change Password</h5>
               <p class="text-muted mb-0">Update your security</p>
             </div>
-            <div class="action-card" onclick="window.location.href='/'">
+            <div class="action-card" onclick="window.location.href='{{ chatbot_url }}'">
               <div class="feature-icon">
                 <i class="bi bi-chat-dots"></i>
               </div>
@@ -166,19 +166,35 @@
         <div class="col-12">
           <h3 class="page-title">Ask Nour Knowledge Base Status</h3>
         </div>
-        <div class="col-md-6 mb-3">
+        <div class="col-md-3 mb-3">
           <div class="stats-card card h-100">
             <div class="card-body text-center">
               <div class="stats-number">{{ stats.total_vectors|default(0) }}</div>
-              <div class="stats-label">Total Knowledge Vectors</div>
+              <div class="stats-label">Knowledge Vectors</div>
             </div>
           </div>
         </div>
-        <div class="col-md-6 mb-3">
+        <div class="col-md-3 mb-3">
+          <div class="stats-card card h-100">
+            <div class="card-body text-center">
+              <div class="stats-number">{{ stats.total_images|default(0) }}</div>
+              <div class="stats-label">Images in Database</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="stats-card card h-100">
+            <div class="card-body text-center">
+              <div class="stats-number">{{ stats.total_videos|default(0) }}</div>
+              <div class="stats-label">Videos in Database</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
           <div class="stats-card card h-100">
             <div class="card-body text-center">
               <div class="stats-number">{{ stats.last_upload|default('Never') }}</div>
-              <div class="stats-label">Last Knowledge Update</div>
+              <div class="stats-label">Last Upload</div>
             </div>
           </div>
         </div>
@@ -194,57 +210,8 @@
 
       <!-- Main Content -->
       <div class="row">
-        <!-- Upload Section -->
-        <div class="col-md-6 mb-4">
-          <div class="card h-100">
-            <div class="card-header">
-              <h5 class="mb-0">
-                <i class="bi bi-brain"></i> Add Knowledge to Ask Nour
-              </h5>
-            </div>
-            <div class="card-body">
-              <p class="card-text mb-4">
-                Upload documents to expand Ask Nour's knowledge base. Files are converted to embeddings and stored in Pinecone for intelligent retrieval.
-              </p>
-
-              <form id="uploadForm">
-                <div class="mb-3">
-                  <label for="fileInput" class="form-label">Select File</label>
-                  <input
-                    type="file"
-                    class="form-control"
-                    id="fileInput"
-                    name="file"
-                    accept=".pdf,.txt,.docx"
-                    required
-                  />
-                  <div class="form-text text-muted">
-                    Supported formats: PDF, TXT, DOCX (converted to embeddings, not stored locally)
-                  </div>
-                </div>
-                <button type="submit" class="btn btn-fue-primary w-100">
-                  <i class="bi bi-upload"></i> Process & Add to Knowledge Base
-                </button>
-              </form>
-
-              <div id="uploadMessage" class="mt-3"></div>
-
-              <!-- Upload Progress Bar -->
-              <div id="uploadProgress" class="mt-3" style="display: none">
-                <div class="progress">
-                  <div
-                    class="progress-bar progress-bar-striped progress-bar-animated"
-                    role="progressbar"
-                    style="width: 0%"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Password Change Section -->
-        <div class="col-md-6 mb-4">
+        <div class="col-md-12 mb-4">
           <div class="card h-100">
             <div class="card-header">
               <h5 class="mb-0"><i class="bi bi-key"></i> Change Password</h5>
@@ -410,62 +377,6 @@
 
     <!-- Custom JavaScript -->
     <script>
-      // File Upload Handler
-      document
-        .getElementById("uploadForm")
-        .addEventListener("submit", async function (e) {
-          e.preventDefault();
-
-          const fileInput = document.getElementById("fileInput");
-          const messageBox = document.getElementById("uploadMessage");
-          const progressBar = document.getElementById("uploadProgress");
-
-          if (!fileInput.files[0]) {
-            showMessage(messageBox, "Please select a file", "danger");
-            return;
-          }
-
-          const formData = new FormData();
-          formData.append("file", fileInput.files[0]);
-
-          // Show progress
-          progressBar.style.display = "block";
-          messageBox.innerHTML =
-            '<div class="alert alert-info"><i class="bi bi-upload"></i> Uploading file...</div>';
-
-          try {
-            const response = await fetch("/upload", {
-              method: "POST",
-              body: formData,
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-              showMessage(
-                messageBox,
-                result.message || "File uploaded successfully!",
-                "success"
-              );
-              fileInput.value = ""; // Clear file input
-            } else {
-              showMessage(
-                messageBox,
-                result.message || "Upload failed",
-                "danger"
-              );
-            }
-          } catch (error) {
-            showMessage(
-              messageBox,
-              "Error uploading file: " + error.message,
-              "danger"
-            );
-          } finally {
-            progressBar.style.display = "none";
-          }
-        });
-
       // Password Change Handler
       document
         .getElementById("passwordForm")

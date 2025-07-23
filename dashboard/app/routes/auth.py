@@ -42,10 +42,13 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     Returns:
         Redirect to home on success, or login page with error on failure
     """
+    print(f"DEBUG: Attempting login for user: {username}")
+
     if verify_user(username, password):
+        print(f"DEBUG: User {username} verified successfully")
         request.session["user"] = {"username": username}
         return RedirectResponse("/", status_code=HTTP_302_FOUND)
-    
+    print(f"DEBUG: Invalid credentials for user: {username}")
     return templates.TemplateResponse("login.html", {
         "request": request, 
         "error": "Invalid credentials"

@@ -10,7 +10,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from uuid import uuid4
 
-from utils.constants import INIT_TEXT, CHUNK_OVERLAP, CHUNK_SIZE
+from utils.constants import CHUNK_OVERLAP, CHUNK_SIZE
 
 if not os.getenv("PINECONE_API_KEY"):
     raise Exception("DEBUG: PINECONE_API_KEY not set in environment variables. Please set it before running the script.")
@@ -45,16 +45,8 @@ def get_pinecone_vector_store():
     
     vector_store = PineconeVectorStore(index=index, embedding=embed)
 
-    if not index_already_exists:
-        print("DEBUG: Initializing Pinecone with intro document")
-        
-        add_documents_to_vector_store(
-            vector_store,
-            [INIT_TEXT],
-            metadatas=[{"source": "intro"}]
-        )
-
-        print(f"DEBUG: ✅ Initialized Pinecone with intro doc and saved to {index_name}")
+    print("DEBUG: Initialized PineconeVectorStore")
+    print(f"DEBUG: Vector store initialized with index: {index_name}")
 
     return vector_store
 

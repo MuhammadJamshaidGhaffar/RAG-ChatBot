@@ -24,6 +24,9 @@ class Settings:
     APP_NAME = "Document Upload Dashboard"
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
     
+    # Chatbot settings
+    CHATBOT_PUBLIC_URL = os.getenv("CHATBOT_PUBLIC_URL", "/")
+    
     @classmethod
     def create_directories(cls):
         """Create necessary directories if they don't exist"""

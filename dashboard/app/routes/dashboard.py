@@ -37,7 +37,8 @@ async def dashboard(request: Request) -> HTMLResponse:
         "request": request, 
         "user": user,
         "current_time": datetime.now(),
-        "stats": stats
+        "stats": stats,
+        "chatbot_url": settings.CHATBOT_PUBLIC_URL
     })
 
 

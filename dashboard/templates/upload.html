@@ -35,7 +35,7 @@
         border: 1px solid rgba(174, 15, 10, 0.1);
         border-radius: var(--fue-radius-xl);
         padding: 3rem;
-        max-width: 700px;
+        max-width: 800px;
         margin: auto;
         box-shadow: var(--fue-shadow-xl);
       }
@@ -48,19 +48,17 @@
       }
 
       .form-control {
-        background-color: var(--fue-white);
-        border: 2px solid rgba(174, 15, 10, 0.2);
-        border-radius: 10px;
-        color: var(--fue-dark-gray);
-        padding: 12px 16px;
+        border: 2px solid var(--fue-light-gray);
+        border-radius: var(--fue-radius-lg);
+        padding: 0.75rem;
+        font-size: 1rem;
         transition: all 0.3s ease;
       }
 
       .form-control:focus {
-        background-color: var(--fue-white);
         border-color: var(--fue-burgundy);
-        box-shadow: 0 0 0 0.2rem rgba(174, 15, 10, 0.25);
-        color: var(--fue-dark-gray);
+        box-shadow: 0 0 0 0.25rem rgba(174, 15, 10, 0.1);
+        outline: none;
       }
 
       .btn-custom {
@@ -71,31 +69,22 @@
         );
         border: none;
         color: white;
-        padding: 12px 24px;
-        border-radius: 10px;
+        padding: 0.75rem 2rem;
+        border-radius: var(--fue-radius-lg);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
         transition: all 0.3s ease;
-        font-weight: 500;
+        box-shadow: var(--fue-shadow-lg);
       }
 
       .btn-custom:hover {
+        background: linear-gradient(
+          45deg,
+          var(--fue-burgundy-hover),
+          var(--fue-burgundy)
+        );
         transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(174, 15, 10, 0.4);
-        color: white;
-      }
-
-      .btn-outline-custom {
-        border: 2px solid var(--fue-burgundy);
-        color: var(--fue-burgundy);
-        background: transparent;
-        padding: 8px 16px;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        text-decoration: none;
-      }
-
-      .btn-outline-custom:hover {
-        background: var(--fue-burgundy);
-        color: white;
       }
 
       .msg {
@@ -132,6 +121,41 @@
         font-weight: 600;
         margin-bottom: 0.5rem;
       }
+
+      .upload-section {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-top: 1rem;
+      }
+
+      .btn-group .btn {
+        border-radius: 0;
+        border-color: var(--fue-burgundy);
+        color: var(--fue-burgundy);
+      }
+
+      .btn-group .btn:first-child {
+        border-top-left-radius: 10px;
+        border-bottom-left-radius: 10px;
+      }
+
+      .btn-group .btn:last-child {
+        border-top-right-radius: 10px;
+        border-bottom-right-radius: 10px;
+      }
+
+      .btn-group .btn.active {
+        background-color: var(--fue-burgundy);
+        border-color: var(--fue-burgundy);
+        color: white;
+      }
+
+      .btn-group .btn:hover {
+        background-color: var(--fue-burgundy-hover);
+        border-color: var(--fue-burgundy);
+        color: white;
+      }
     </style>
   </head>
 
@@ -148,15 +172,19 @@
             />
             <div class="brand-text">
               <div class="brand-title">Ask Nour</div>
-              <div class="brand-subtitle">Knowledge Enhancement</div>
+              <div class="brand-subtitle">Upload Content</div>
             </div>
           </div>
         </span>
+
         <div class="navbar-nav ms-auto">
-          <a href="/dashboard" class="btn btn-outline-custom me-2">
+          <a class="nav-link btn btn-outline-primary me-2" href="/">
+            <i class="bi bi-house"></i> Home
+          </a>
+          <a class="nav-link btn btn-outline-primary me-2" href="/dashboard">
             <i class="bi bi-speedometer2"></i> Dashboard
           </a>
-          <a href="/logout" class="btn btn-custom">
+          <a class="nav-link btn btn-outline-danger" href="/logout">
             <i class="bi bi-box-arrow-right"></i> Logout
           </a>
         </div>
@@ -164,79 +192,169 @@
     </nav>
 
     <div class="upload-container">
-      <!-- Header with Icon -->
+      <!-- Upload Instructions -->
       <div class="upload-header">
         <div class="feature-icon">
           <i class="bi bi-cloud-upload"></i>
         </div>
-        <h3 class="page-title">Enhance Ask Nour's Knowledge</h3>
-        <p style="color: var(--fue-gray); margin: 0">
-          Upload documents to expand Ask Nour's knowledge base. Files are
-          processed into embeddings and stored in Pinecone for intelligent
-          retrieval.
+        <h1 class="page-title">Upload Content to Ask Nour</h1>
+        <p class="text-muted">
+          Choose the type of content you want to upload to the FUE Knowledge Companion
         </p>
       </div>
 
-      <!-- Upload Form -->
-      <form id="uploadForm">
-        <div class="mb-4">
-          <label for="fileInput" class="form-label">
-            <i class="bi bi-file-earmark"></i> Select File
-          </label>
-          <input
-            type="file"
-            class="form-control"
-            id="fileInput"
-            name="file"
-            accept=".pdf,.txt,.docx"
-            required
-          />
-          <div class="form-text mt-2" style="color: var(--fue-gray)">
-            <i class="bi bi-info-circle"></i>
-            Supported formats: PDF, TXT, DOCX files
-          </div>
-        </div>
-
-        <div class="d-grid">
-          <button type="submit" class="btn btn-custom">
-            <i class="bi bi-upload"></i> Upload & Index Document
-          </button>
-        </div>
-      </form>
-
-      <!-- Message Display -->
-      <div class="msg" id="messageBox"></div>
-
-      <!-- Progress Bar -->
-      <div id="uploadProgress" class="mt-3" style="display: none">
-        <div class="progress">
-          <div
-            class="progress-bar progress-bar-striped progress-bar-animated"
-            role="progressbar"
-            style="width: 0%"
-          ></div>
-        </div>
-        <small class="text-muted">Processing your document...</small>
-      </div>
-
-      <!-- Quick Links -->
-      <div class="mt-4 pt-4" style="border-top: 2px solid var(--fue-burgundy)">
-        <div class="row text-center">
-          <div class="col-6">
-            <a href="/dashboard" class="btn btn-outline-custom w-100">
-              <i class="bi bi-speedometer2"></i><br />
-              <small>Dashboard</small>
-            </a>
-          </div>
-          <div class="col-6">
-            <button
-              class="btn btn-outline-custom w-100"
-              onclick="window.location.reload()"
-            >
-              <i class="bi bi-arrow-clockwise"></i><br />
-              <small>Refresh</small>
+      <!-- Upload Type Selector -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="btn-group w-100" role="group" aria-label="Upload type selector">
+            <button type="button" class="btn btn-outline-primary active" id="documentTab" onclick="showUploadType('document')">
+              <i class="bi bi-file-earmark-text"></i> Documents
+            </button>
+            <button type="button" class="btn btn-outline-primary" id="imagesTab" onclick="showUploadType('images')">
+              <i class="bi bi-images"></i> Images CSV
+            </button>
+            <button type="button" class="btn btn-outline-primary" id="videosTab" onclick="showUploadType('videos')">
+              <i class="bi bi-camera-video"></i> Videos CSV
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- Document Upload Form -->
+      <div id="documentUpload" class="upload-section">
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle"></i>
+          <strong>Documents for Knowledge Base:</strong> Upload PDF, TXT, or DOCX files to add content to the AI knowledge base for student questions.
+        </div>
+        
+        <form id="documentForm">
+          <div class="mb-4">
+            <label for="documentInput" class="form-label">
+              <i class="bi bi-file-earmark"></i> Select Document
+            </label>
+            <input
+              type="file"
+              class="form-control"
+              id="documentInput"
+              name="file"
+              accept=".pdf,.txt,.docx"
+              required
+            />
+            <div class="form-text mt-2" style="color: var(--fue-gray)">
+              <i class="bi bi-info-circle"></i>
+              Supported formats: PDF, TXT, DOCX files
+            </div>
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-custom">
+              <i class="bi bi-upload"></i> Upload Document to Knowledge Base
+            </button>
+          </div>
+        </form>
+
+        <div class="msg" id="documentMessage"></div>
+        <div id="documentProgress" class="mt-3" style="display: none">
+          <div class="progress">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+          </div>
+          <small class="text-muted">Processing your document...</small>
+        </div>
+      </div>
+
+      <!-- Images CSV Upload Form -->
+      <div id="imagesUpload" class="upload-section" style="display: none;">
+        <div class="alert alert-warning">
+          <i class="bi bi-info-circle"></i>
+          <strong>Images CSV Upload:</strong> Upload a CSV file containing image URLs and descriptions for the chatbot's media responses.
+        </div>
+        
+        <div class="alert alert-light">
+          <strong>CSV Format:</strong><br>
+          <code>Column 1: Image URL (required)<br>Column 2: Description (optional)</code><br>
+          <small class="text-muted">Headers can be anything or omitted entirely. First row is automatically skipped.</small>
+        </div>
+        
+        <form id="imagesForm">
+          <div class="mb-4">
+            <label for="imagesInput" class="form-label">
+              <i class="bi bi-images"></i> Select Images CSV
+            </label>
+            <input
+              type="file"
+              class="form-control"
+              id="imagesInput"
+              name="file"
+              accept=".csv"
+              required
+            />
+            <div class="form-text mt-2" style="color: var(--fue-gray)">
+              <i class="bi bi-info-circle"></i>
+              Only CSV files are accepted
+            </div>
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-custom">
+              <i class="bi bi-upload"></i> Upload Images CSV
+            </button>
+          </div>
+        </form>
+
+        <div class="msg" id="imagesMessage"></div>
+        <div id="imagesProgress" class="mt-3" style="display: none">
+          <div class="progress">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+          </div>
+          <small class="text-muted">Processing your images CSV...</small>
+        </div>
+      </div>
+
+      <!-- Videos CSV Upload Form -->
+      <div id="videosUpload" class="upload-section" style="display: none;">
+        <div class="alert alert-success">
+          <i class="bi bi-info-circle"></i>
+          <strong>Videos CSV Upload:</strong> Upload a CSV file containing video URLs and descriptions for the chatbot's media responses.
+        </div>
+        
+        <div class="alert alert-light">
+          <strong>CSV Format:</strong><br>
+          <code>Column 1: Video URL with platform prefix (required)<br>Column 2: Description (optional)</code><br>
+          <small class="text-muted">Use "youtube:" or "facebook:" prefix. Headers can be anything or omitted entirely.</small>
+        </div>
+        
+        <form id="videosForm">
+          <div class="mb-4">
+            <label for="videosInput" class="form-label">
+              <i class="bi bi-camera-video"></i> Select Videos CSV
+            </label>
+            <input
+              type="file"
+              class="form-control"
+              id="videosInput"
+              name="file"
+              accept=".csv"
+              required
+            />
+            <div class="form-text mt-2" style="color: var(--fue-gray)">
+              <i class="bi bi-info-circle"></i>
+              Only CSV files are accepted
+            </div>
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-custom">
+              <i class="bi bi-upload"></i> Upload Videos CSV
+            </button>
+          </div>
+        </form>
+
+        <div class="msg" id="videosMessage"></div>
+        <div id="videosProgress" class="mt-3" style="display: none">
+          <div class="progress">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+          </div>
+          <small class="text-muted">Processing your videos CSV...</small>
         </div>
       </div>
     </div>
@@ -245,14 +363,47 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-      const uploadForm = document.getElementById("uploadForm");
-      const messageBox = document.getElementById("messageBox");
-      const progressBar = document.getElementById("uploadProgress");
+      // Tab switching functionality
+      function showUploadType(type) {
+        // Hide all sections
+        document.getElementById('documentUpload').style.display = 'none';
+        document.getElementById('imagesUpload').style.display = 'none';
+        document.getElementById('videosUpload').style.display = 'none';
 
-      uploadForm.addEventListener("submit", async function (e) {
-        e.preventDefault();
+        // Remove active class from all tabs
+        document.getElementById('documentTab').classList.remove('active');
+        document.getElementById('imagesTab').classList.remove('active');
+        document.getElementById('videosTab').classList.remove('active');
 
-        const fileInput = document.getElementById("fileInput");
+        // Show selected section and activate tab
+        if (type === 'document') {
+          document.getElementById('documentUpload').style.display = 'block';
+          document.getElementById('documentTab').classList.add('active');
+        } else if (type === 'images') {
+          document.getElementById('imagesUpload').style.display = 'block';
+          document.getElementById('imagesTab').classList.add('active');
+        } else if (type === 'videos') {
+          document.getElementById('videosUpload').style.display = 'block';
+          document.getElementById('videosTab').classList.add('active');
+        }
+      }
+
+      // Generic upload function
+      async function handleUpload(formId, endpoint, inputId, messageId, progressId) {
+        const form = document.getElementById(formId);
+        const fileInput = document.getElementById(inputId);
+        const messageBox = document.getElementById(messageId);
+        const progressBar = document.getElementById(progressId);
+
+        if (!fileInput.files[0]) {
+          messageBox.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="bi bi-exclamation-triangle"></i> Please select a file first.
+            </div>
+          `;
+          return;
+        }
+
         const formData = new FormData();
         formData.append("file", fileInput.files[0]);
 
@@ -260,12 +411,12 @@
         progressBar.style.display = "block";
         messageBox.innerHTML = `
           <div class="alert alert-info">
-            <i class="bi bi-upload"></i> Uploading and processing your document...
+            <i class="bi bi-upload"></i> Uploading and processing your file...
           </div>
         `;
 
         try {
-          const response = await fetch("/upload", {
+          const response = await fetch(endpoint, {
             method: "POST",
             body: formData,
           });
@@ -275,44 +426,44 @@
           if (response.ok) {
             messageBox.innerHTML = `
               <div class="alert alert-success">
-                <i class="bi bi-check-circle"></i> ${
-                  result.message || "Upload successful!"
-                }
+                <i class="bi bi-check-circle"></i> ${result.message || "Upload successful!"}
               </div>
             `;
             fileInput.value = ""; // Clear the input
           } else {
             messageBox.innerHTML = `
               <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> ${
-                  result.message || "Upload failed"
-                }
+                <i class="bi bi-exclamation-triangle"></i> ${result.message || "Upload failed"}
               </div>
             `;
           }
-        } catch (err) {
+        } catch (error) {
           messageBox.innerHTML = `
             <div class="alert alert-danger">
-              <i class="bi bi-exclamation-triangle"></i> Error uploading file: ${err.message}
+              <i class="bi bi-exclamation-triangle"></i> Network error: ${error.message}
             </div>
           `;
         } finally {
           progressBar.style.display = "none";
         }
+      }
+
+      // Document upload handler
+      document.getElementById('documentForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        await handleUpload('documentForm', '/upload/document', 'documentInput', 'documentMessage', 'documentProgress');
       });
 
-      // Auto-hide alerts after 5 seconds
-      document.addEventListener("DOMContentLoaded", function () {
-        setTimeout(function () {
-          const alerts = document.querySelectorAll(".alert");
-          alerts.forEach((alert) => {
-            if (alert.classList.contains("show")) {
-              alert.style.transition = "opacity 0.5s";
-              alert.style.opacity = "0";
-              setTimeout(() => alert.remove(), 500);
-            }
-          });
-        }, 5000);
+      // Images CSV upload handler
+      document.getElementById('imagesForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        await handleUpload('imagesForm', '/upload/images-csv', 'imagesInput', 'imagesMessage', 'imagesProgress');
+      });
+
+      // Videos CSV upload handler
+      document.getElementById('videosForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        await handleUpload('videosForm', '/upload/videos-csv', 'videosInput', 'videosMessage', 'videosProgress');
       });
     </script>
   </body>

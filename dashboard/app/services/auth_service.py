@@ -12,8 +12,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
 
 from database.mongo_client import get_mongo_client
-
-ADMIN_USERS_COLLECTION_NAME = os.getenv("ADMIN_USERS_COLLECTION", "admin_users")
+from utils.constants import ADMIN_USERS_COLLECTION_NAME
 
 db = get_mongo_client()
 users_col = db[ADMIN_USERS_COLLECTION_NAME]
@@ -31,7 +30,9 @@ def verify_user(username: str, password: str) -> bool:
         True if credentials are valid, False otherwise
     """
     user = users_col.find_one({"username": username})
+
     if user and bcrypt.verify(password, user["password"]):
+        print(f"DEBUG: User {username} verified successfully")
         return True
     return False
 

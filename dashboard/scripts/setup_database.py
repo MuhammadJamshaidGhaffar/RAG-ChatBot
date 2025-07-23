@@ -19,6 +19,7 @@ sys.path.append(str(project_root))
 
 # custom imports
 from database.mongo_client import get_mongo_client
+from constants import ADMIN_USERS_COLLECTION_NAME, IMAGES_COLLECTION, VIDEOS_COLLECTION
 
 
 def setup_admin_user():
@@ -56,6 +57,15 @@ def setup_admin_user():
     else:
         print(f"ℹ️ Admin user already exists: {admin_user['username']}")
 
+    collection_names = [ADMIN_USERS_COLLECTION_NAME, "config", IMAGES_COLLECTION, VIDEOS_COLLECTION]
+    for name in collection_names:
+        if name not in db.list_collection_names():
+            db.create_collection(name)
+            print(f"Created collection: {name}")
+        else:
+            print(f"Collection already exists: {name}")
+
+    print("MongoDB initialization complete.")
 
 if __name__ == "__main__":
     setup_admin_user()

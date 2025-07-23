@@ -1,28 +1,31 @@
-"""
-Application constants
-"""
+# constants.py
 
-# Vector database settings
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 200
+# Text splitting
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 100
 
-# Initial text for vector store initialization
-INIT_TEXT = """
-Welcome to the Document Upload Dashboard!
+# Retriever
+RETRIEVER_K = 3
 
-This system allows you to upload and index documents for AI-powered search and retrieval.
+MAX_HISTORY_TOKENS = 500
+MAX_INPUT_TOKENS = 20
+MAX_OUTPUT_TOKENS = 750
 
-Supported formats:
-- PDF files
-- Text files (.txt)
-- Word documents (.docx)
 
-Features:
-- Secure authentication
-- Document indexing with vector embeddings
-- Modern web interface
-- Real-time upload progress
-- Password management
+# Text splitting
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 100
 
-Your documents are processed and stored securely for optimal search performance.
-"""
+
+END_TOKEN = "[END_RESPONSE]"
+
+
+ADMIN_USERS_COLLECTION_NAME = "admin_users"
+IMAGES_COLLECTION = "images"
+VIDEOS_COLLECTION = "videos"
+CONFIG_COLLECTION = "config"
+EXTRAS_COLLECTION = "extras"
+
+CHAT_HISTORY_COLLECTION = "chat_history"
+QUESTIONS_COLLECTION = "questions"
+
