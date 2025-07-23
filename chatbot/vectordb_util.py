@@ -40,17 +40,6 @@ def get_pinecone_vector_store():
     embed = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
     vector_store = PineconeVectorStore(index=index, embedding=embed)
 
-    # if not index_already_exists:
-    #     print("DEBUG: Initializing Pinecone with intro document")
-        
-    #     add_documents_to_vector_store(
-    #         vector_store,
-    #         [INIT_TEXT],
-    #         metadatas=[{"source": "intro"}]
-    #     )
-
-    #     print(f"DEBUG: ✅ Initialized Pinecone with intro doc and saved to {index_name}")
-
     return vector_store
 
 def add_documents_to_vector_store(vector_store, documents, metadatas=None):
