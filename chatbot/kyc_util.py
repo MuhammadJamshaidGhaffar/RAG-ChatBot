@@ -36,14 +36,19 @@ You are an admission assistant for a university. From the user message below, ex
 
 Valid faculties are:
 {faculties}
-                                      
-If the user mentions an partial or slightly incorrect faculty name, infer the most likely valid one.
-If faculty is too ambiguous or not present, return faculty as null.                                      
-                                      
-Return only a JSON object. If a field is missing, use null. Do not guess.
+
+If the user mentions a partial or slightly incorrect faculty name, infer the most likely valid one.
+If faculty is too ambiguous or not present, return faculty as null.
+
+Return only a JSON object with the extracted data. If a field is missing, use null. Do not guess.
 
 Example format:
-{{"name": "...", "email": "...", "mobile": "...", "faculty": "..."}}
+{{
+  "name": "...", 
+  "email": "...", 
+  "mobile": "...", 
+  "faculty": "..."
+}}
 
 User message:
 {message}
@@ -51,9 +56,48 @@ User message:
 
 kyc_chain = prompt | llm
 
+# LLM chain for generating dynamic validation and completion messages
+message_llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash", response_mime_type="application/json"
+)
+
+message_prompt = PromptTemplate.from_template("""
+You are an admission assistant for Future University in Egypt (FUE). Generate appropriate response messages based on the KYC validation results.
+
+Detect the language of the user's previous message (English, Arabic, or Franco-Arabic, which is Arabic text mixed with Latin characters or French words) and respond in the same language.
+For Franco-Arabic inputs, respond in standard Arabic.
+
+Current KYC state: {kyc_state}
+Missing fields: {missing_fields}
+Validation errors: {validation_errors}
+User's previous message: {user_message}
+
+Available faculties: {faculties}
+
+Generate a JSON response with appropriate message text:
+
+If KYC is complete (no missing fields, no errors):
+{{
+  "message_type": "completion",
+  "text": "Welcome message confirming completion and readiness to help with university questions"
+}}
+
+If there are missing fields or validation errors:
+{{
+  "message_type": "guidance", 
+  "text": "Helpful message guiding user to provide missing/correct information"
+}}
+
+Make the messages friendly, professional, and specific to the issues found. Use emojis appropriately.
+""")
+
+message_chain = message_prompt | message_llm
+
 async def send_welcome_message():
     cl.user_session.set("kyc", {})
     faculty_list = "\n- " + "\n- ".join(FACULTIES)
+    
+    # Create welcome message with logo
     welcome = f"""
 🎓 **Welcome to Ask Nour - Your FUE Knowledge Companion!**
 
@@ -65,11 +109,22 @@ I'm here to assist you with all your **Future University in Egypt (FUE)** inquir
 - 📱 **Mobile Number**
 - 🏛️ **Faculty of Interest**
 
-**� Available FUE Faculties:**{faculty_list}
+**🎯 Available FUE Faculties:**{faculty_list}
 
 You can enter all details at once or provide them one by one. Let's get started on your FUE journey! 🚀
 """
-    await cl.Message(content=welcome).send()
+    
+    # Create image element for the logo
+    logo_image = cl.Image(path="./public/fue-red-logo.jpg", name="FUE Logo", display="inline")
+    
+    # Send logo
+    # await cl.Message(content="",elements=[logo_image]).send()
+
+    # send Message
+    await cl.Message(
+        content=welcome,
+        elements=[logo_image]
+    ).send()
 
 
 
@@ -81,9 +136,11 @@ async def handle_kyc(message: cl.Message):
     # Extract fields using Gemini
     response = kyc_chain.invoke({"message": message.content, "faculties": FACULTIES})
     print(f"DEBUG: LLM response: {response.content}")
+    
     try:
         extracted = json.loads(response.content)
         print(f"DEBUG: Extracted data: {extracted}")
+            
     except Exception as error:
         print(f"DEBUG: Error parsing LLM response: {error}")
         await cl.Message(content="⚠️ Sorry, I couldn't understand your message. Please try again.").send()
@@ -98,27 +155,25 @@ async def handle_kyc(message: cl.Message):
 
     print(f"DEBUG: KYC after update: {kyc}")
 
-    # Track issues
-    guidance_msgs = []
+    # Track validation issues
+    validation_errors = []
 
     if "email" in kyc and not is_valid_email(kyc["email"]):
         print(f"DEBUG: Invalid email detected: '{kyc['email']}'")
-        guidance_msgs.append(f"📧 The email '{kyc['email']}' is invalid. Please enter a valid email (e.g., example@domain.com).")
+        validation_errors.append(f"Invalid email: {kyc['email']}")
         kyc.pop("email")
 
     if "mobile" in kyc and not is_valid_mobile(kyc["mobile"]):
         print(f"DEBUG: Invalid mobile detected: '{kyc['mobile']}'")
-        guidance_msgs.append(f"📱 The mobile number '{kyc['mobile']}' seems invalid. Please include country code and use 10–15 digits.")
+        validation_errors.append(f"Invalid mobile: {kyc['mobile']}")
         kyc.pop("mobile")
 
     if "faculty" in kyc and not is_valid_faculty(kyc["faculty"]):
         print(f"DEBUG: Invalid faculty detected: '{kyc['faculty']}'")
-        faculty_list = ", ".join(FACULTIES)
-        guidance_msgs.append(f"🏫 The faculty '{kyc['faculty']}' is not recognized. Valid options are: {faculty_list}.")
+        validation_errors.append(f"Invalid faculty: {kyc['faculty']}")
         kyc.pop("faculty")
 
-    print(f"DEBUG: Validation errors found: {len(guidance_msgs)}")
-    print(f"DEBUG: Guidance messages: {guidance_msgs}")
+    print(f"DEBUG: Validation errors found: {len(validation_errors)}")
     cl.user_session.set("kyc", kyc)
 
     # Check if KYC is complete
@@ -128,24 +183,38 @@ async def handle_kyc(message: cl.Message):
     print(f"DEBUG: Required fields: {required_fields}")
     print(f"DEBUG: Missing fields: {missing}")
     print(f"DEBUG: Final KYC state: {kyc}")
-    print(f"DEBUG: Has guidance messages: {len(guidance_msgs) > 0}")
 
-    if not missing and not guidance_msgs:
-        print(f"DEBUG: KYC is complete! User: {kyc['name']}")
-        # await cl.Message(
-        #     content=f"✅ Great, {kyc['name']}! Your KYC is complete. You can now ask questions related to university admissions."
-        # ).send()
-
-        return True
-    else:
-        msg_parts = []
-        if missing:
-            msg_parts.append("🔍 You're still missing the following info: " + ", ".join(missing))
-        if guidance_msgs:
-            msg_parts.extend(guidance_msgs)
-
-        final_message = "\n\n".join(msg_parts)
-        print(f"DEBUG: Sending incomplete KYC message: {final_message}")
-        await cl.Message(content=final_message).send()
-
-    return False
+    # Generate dynamic response message
+    try:
+        message_response = message_chain.invoke({
+            "kyc_state": str(kyc),
+            "missing_fields": missing,
+            "validation_errors": validation_errors,
+            "user_message": message.content,
+            "faculties": FACULTIES
+        })
+        
+        message_data = json.loads(message_response.content)
+        print(f"DEBUG: Generated message: {message_data}")
+        
+        # Send the dynamic message
+        if message_data.get("text"):
+            await cl.Message(content=message_data["text"]).send()
+            
+        # Return completion status
+        return message_data.get("message_type") == "completion"
+        
+    except Exception as error:
+        print(f"DEBUG: Error generating dynamic message: {error}")
+        # Fallback to simple status message
+        if not missing and not validation_errors:
+            await cl.Message(
+                content=f"✅ Great, {kyc.get('name', 'there')}! Your information is complete. You can now ask questions about university admissions."
+            ).send()
+            return True
+        else:
+            fallback_msg = "Please provide any missing information to continue."
+            if missing:
+                fallback_msg = f"Missing: {', '.join(missing)}. " + fallback_msg
+            await cl.Message(content=fallback_msg).send()
+            return False

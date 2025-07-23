@@ -6,3 +6,4 @@ faiss-cpu
 langchain-pinecone
 langchain-google-genai
 python-dotenv
+pymongo

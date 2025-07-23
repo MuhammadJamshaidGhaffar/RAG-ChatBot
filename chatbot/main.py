@@ -1,13 +1,15 @@
 import chainlit as cl
 import os
-
+import json
 from langchain_core.messages import  HumanMessage
 from langchain_core.messages.utils import count_tokens_approximately
 
-from constants import MAX_INPUT_TOKENS
-from utils import trim_chat_history, run_chain_with_retry, create_llm_chain, send_error_message
+from constants import MAX_INPUT_TOKENS,END_TOKEN
+from utils import trim_chat_history, run_chain_with_retry, create_llm_chain, send_error_message, extract_variables_from_response, search_media_by_keywords
+from utils import get_media_selector_llm_chain
 from kyc_util import handle_kyc, send_welcome_message
 from vectordb_util import get_pinecone_vector_store
+from mongo_util import get_mongo_client
 
 if not os.getenv("GOOGLE_API_KEY"):
     error_msg = "❌ GOOGLE_API_KEY missing"
@@ -16,6 +18,8 @@ if not os.getenv("GOOGLE_API_KEY"):
 
 vectordb = get_pinecone_vector_store()
 chain = create_llm_chain(vectordb)
+media_selector_chain = get_media_selector_llm_chain()
+mongo_db = get_mongo_client()
 
 @cl.on_chat_start
 async def on_chat_start():
@@ -29,6 +33,7 @@ async def on_chat_start():
 
 @cl.on_message
 async def handle_message(message: cl.Message):
+
     print(f"DEBUG: ========== NEW MESSAGE ==========")
     print(f"DEBUG: User message: '{message.content}'")
     print(f"DEBUG: Current session state - is_kyc_complete: {cl.user_session.get('is_kyc_complete', False)}")
@@ -76,6 +81,7 @@ async def handle_message(message: cl.Message):
     msg = cl.Message(content="")
     await msg.send()
 
+    
     answer_chain = chain.pick("answer")
     try:
         history = cl.chat_context.to_openai()
@@ -89,8 +95,97 @@ async def handle_message(message: cl.Message):
         print(f"DEBUG: Trimmed history content: {trimmed}")
         
         print(f"DEBUG: Starting chain execution with params - user: {kyc.get('name', 'Unknown')}, faculty: {kyc.get('faculty', "Unknown")}")
+        found_end = False
+        response_text = ""
         for token in run_chain_with_retry(answer_chain, user_input, kyc.get('name', "Unknown"), kyc.get("faculty", "Unknown"),  trimmed):
-            await msg.stream_token(token)
+            response_text += token
+
+            print(f"DEBUG: Streaming token: {token}")
+
+            if not found_end:
+                # Stream the token to the message
+                await msg.stream_token(token.split(END_TOKEN)[0])  # Stream only up to the END_TOKEN if it exists
+
+            # Check if [END_RESPONSE] just appeared in the response
+            if END_TOKEN in response_text and not found_end:
+                found_end = True  # Stop streaming further tokens
+            
+
+        # extract two variables
+        include_media, keywords = extract_variables_from_response(response_text)
+
+        print(f"DEBUG: include_media={include_media}, keywords={keywords}")
+
+        if include_media:
+            print(f"DEBUG: Searching media with keywords: {keywords}")
+            images, videos = search_media_by_keywords(keywords, mongo_db, )
+            print(f"DEBUG: Found {len(images)} images and {len(videos)} videos")
+
+            # a default response of LLM
+            extracted = {
+                    "images": [],
+                    "videos": [],
+                    "text": "Here are some relevant media"
+                }
+            extracted_image_urls = []
+            extracted_video_urls = []
+
+            if len(images) > 3 and len(videos) > 3:
+                
+                response = media_selector_chain.invoke({
+                    "input": user_input,
+                    "previous_response": response_text,
+                    "videos" : ", ".join([f"{video['video_url']} ({video.get('description', 'No description')})" for video in videos]),
+                    "images" : ", ".join([f"{image['image_url']} ({image.get('description', 'No description')})" for image in images])
+                })
+
+                response_text = response.content
+                print(f"DEBUG: LLM response: {response_text}")
+                
+                try:
+                    print("DEBUG: Attempting to parse LLM response for media extraction")
+                    extracted = json.loads(response_text.content)
+                    print(f"DEBUG: Extracted data: {extracted}")
+
+                    extracted_image_urls = extracted["images"]
+                    extracted_video_urls = extracted["videos"]
+
+                    if not extracted_image_urls or not extracted_video_urls:
+                        raise ValueError("No images or videos extracted from response")
+                    
+                except Exception as error:
+                    print(f"DEBUG: Error parsing LLM response: {error}")
+            else:
+                extracted_image_urls = [image["image_url"] for image in images]
+                extracted_video_urls = [video["video_url"] for video in videos]
+
+
+            elements = []
+            if extracted_image_urls:
+                print(f"DEBUG: Showing {len(extracted_image_urls)} images")
+                # elements = [cl.Image(url=image_url, name=f"image_{i}", display="inline") for i, image_url in enumerate(extracted_image_urls)]
+                for i, image_url in enumerate(extracted_image_urls):
+                    print(f"DEBUG: Processing image URL {i} : {image_url}")
+                    elements.append(cl.Image(url=image_url, name=f"image_{i}", display="inline"))
+
+            if extracted_video_urls:
+                print(f"DEBUG: Showing {len(videos)} videos")
+
+                # extracted urls are in form of ["Facebook:<url>", "YouTube:<url>", ...]
+                for i, video_url in enumerate(extracted_video_urls):
+                    print(f"DEBUG: Processing video URL {i}: {video_url}")
+                    video_url_lower = video_url.lower()
+                    if video_url_lower.startswith("facebook:"):
+                        video_url_clean = video_url[len("Facebook:"):]
+                        elements.append(cl.CustomElement(name="FacebookVideoEmbed", url=video_url_clean, display="inline"))
+                    elif video_url_lower.startswith("youtube:"):
+                        video_url_clean = video_url[len("YouTube:"):]
+                        elements.append(cl.CustomElement(name="YouTubeVideoEmbed", url=video_url_clean, display="inline"))
+                    else:
+                        print(f"DEBUG: Unknown video URL format: {video_url}, skipping")
+
+            await cl.Message(content=extracted["text"], elements=elements).send()
+
         
     except Exception as e:
         print(f"DEBUG: Error during chain execution: {str(e)}")

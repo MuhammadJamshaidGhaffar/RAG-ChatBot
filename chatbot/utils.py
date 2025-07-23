@@ -14,9 +14,11 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 import chainlit as cl
 from chainlit.message import Message
+from typing import List, Tuple, Dict
+import re
 
 
-from constants import FAISS_PATH, MAX_HISTORY_TOKENS, INIT_TEXT, CHUNK_OVERLAP, CHUNK_SIZE, RETRIEVER_K, MAX_OUTPUT_TOKENS
+from constants import FAISS_PATH, MAX_HISTORY_TOKENS, END_TOKEN, CHUNK_OVERLAP, CHUNK_SIZE, RETRIEVER_K, MAX_OUTPUT_TOKENS, IMAGES_COLLECTION, VIDEOS_COLLECTION
 
 def trim_chat_history(raw_history: list[dict]):
     print(f"DEBUG: Starting trim_chat_history with {len(raw_history)} messages")
@@ -95,13 +97,17 @@ def create_llm_chain(vectordb):
 
     # 1️⃣ setup history-aware retriever
     contextualize_q_system_prompt = (
-        "Given a chat history and the latest user question "
+        "Given a chat history and the latest user question, "
         "which might reference context in the chat history, "
-        "formulate a standalone question which can be understood "
+        "formulate a standalone question that can be understood "
         "without the chat history. Do NOT answer the question, "
-        "just reformulate it if needed and otherwise return it as is.\n\n"
-        "The name of the user is {user_name}, and their selected faculty is {faculty}. "
-        "You can use this information to better personalize and clarify the question."
+        "just reformulate it if needed and otherwise return it as is. "
+        "Detect the language of the user’s question (English, Arabic, or Franco-Arabic, which is Arabic text mixed with Latin characters or French words). "
+        "Preserve the detected language in the reformulated question. "
+        "For Franco-Arabic, treat it as Arabic and reformulate in standard Arabic. "
+        # "The name of the user is {user_name}, and their selected faculty is {faculty}. "
+        "The user's selected faculty is {faculty};"
+        "Use this information to personalize and clarify the question if relevant."
     )
 
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
@@ -117,13 +123,18 @@ def create_llm_chain(vectordb):
 
     # 2️⃣ setup document combiner
     system_prompt = (
-        "You are an assistant for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer "
-        "the question. If you don't know the answer, say that you "
-        "don't know. Use three sentences maximum and keep the "
-        "answer concise.\n\n"
-        "The user's name is {user_name} and their selected faculty is {faculty}. "
-        "You may personalize your response using this information if helpful.\n\n"
+        "You are an Ask Nour, a friendly admission assistant at Future University in Egypt for question-answering tasks. "
+        "Use the following pieces of retrieved context to answer the question concisely in three sentences maximum. "
+        "Detect the language of the user’s question (English, Arabic, or Franco-Arabic, which is Arabic text mixed with Latin characters or French words) and respond in the same language. "
+        "For Franco-Arabic inputs, respond in standard Arabic. "
+        "If you don't know the answer, say that you don't know. "
+        "The user's name is {user_name} and their selected faculty is {faculty}; personalize the response if helpful."
+        "Output the response in plain text with the following structure:"
+        f"- The answer text, followed by the end_token . {END_TOKEN}"
+        f"- After {END_TOKEN}, include metadata in the format: include_media=(true/false),keywords=(keyword1,keyword2,...)"
+        "- Set include_media=true if the user explicitly requests media, or if you believe that including media would enhance the user's experience or help answer the query more effectively."
+        "- Include keywords (e.g., Pharmacy,labs,صيدلة) only if include_media=true."
+        "- Do not include keywords if include_media=false."
         "{context}\n"
     )
     qa_prompt = ChatPromptTemplate.from_messages(
@@ -175,3 +186,90 @@ async def send_error_message(error_msg: str, user_message : "Message", ):
         print("Removed user input from chat context")
     if cl.chat_context.remove(msg):
         print("Removed error message from chat context")
+
+
+def extract_variables_from_response(response_text:str) -> Tuple[bool, List[str]]:
+    meta_match = re.search(r"\[END_RESPONSE\]\s*include_media=(true|false),keywords=\((.*?)\)", response_text, re.DOTALL)
+    
+    if meta_match:
+        include_media = meta_match.group(1) == "true"
+        keywords_raw = meta_match.group(2).strip()
+        keywords = [kw.strip() for kw in keywords_raw.split(",") if kw.strip()]
+    else:
+        include_media = False
+        keywords = []
+
+    return include_media, keywords
+
+def search_media_by_keywords(keywords: List[str], db) -> Tuple[List[Dict], List[Dict]]:
+    """
+    Search MongoDB images and videos collections for documents matching the given keywords in their description.
+    
+    Args:
+        keywords (List[str]): List of keywords to search for (e.g., ["Pharmacy", "labs", "صيدلة"]).
+        db : MongoDB database.
+        images_collection (str): Name of the images collection.
+        videos_collection (str): Name of the videos collection.
+    
+    Returns:
+        Tuple[List[Dict], List[Dict]]: Two lists containing matching documents from images and videos collections.
+        Each document has 'image_url'/'video_url' and 'description' fields.
+    """
+
+    images_coll = db[IMAGES_COLLECTION]
+    videos_coll = db[VIDEOS_COLLECTION]
+    
+    # Build regex query for keywords (case-insensitive)
+    regex_pattern = "|".join(keywords)
+    query = {"description": {"$regex": regex_pattern, "$options": "i"}}
+    
+    # Search images collection
+    image_matches = list(images_coll.find(query))
+    
+    # Search videos collection
+    video_matches = list(videos_coll.find(query))
+    
+    return image_matches, video_matches
+
+
+def get_media_selector_llm_chain():
+    print("DEBUG: Starting get_media_selector_llm_chain()")
+
+    llm_media = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        max_output_tokens=MAX_OUTPUT_TOKENS,
+        response_mime_type="application/json"
+    )
+
+    print(f"DEBUG: Created media selector LLM - model: gemini-2.5-flash, max_tokens: {MAX_OUTPUT_TOKENS}")
+
+    system_prompt = (
+        "You are a media selection assistant. "
+        "Your task is to choose the most relevant media (images and videos) based on the user's question "
+        "and the previous Gemini response. You are provided with candidate media below. "
+        "Select up to 3 images and 3 videos unless the user explicitly asks for more. "
+        "Preserve the original video format exactly as provided (e.g., 'Facebook:<url>' or 'YouTube:<url>').\n\n"
+
+        "Available videos (format: Facebook:<url> or YouTube:<url>):\n"
+        "{videos}\n\n"
+
+        "Available images:\n"
+        "{images}\n\n"
+
+        "Return your answer in the following strict JSON format:\n"
+        "{\n"
+        '  "images": ["<image_url_1>", "<image_url_2>", "..."],\n'
+        '  "videos": ["Facebook:<url>", "YouTube:<url>", "..."],\n'
+        '  "text": "A brief explanation of the selected media."\n'
+        "}\n\n"
+        "Do not include any extra commentary, markdown, or text outside the JSON object."
+    )
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("human", "{input}"),
+        ("ai", "{previous_response}")
+    ])
+
+    chain = prompt | llm_media
+    return chain
