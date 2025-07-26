@@ -67,5 +67,56 @@ def setup_admin_user():
 
     print("MongoDB initialization complete.")
 
+
+def create_collections():
+    """Create chat_history and questions collections with proper indexes."""
+    
+    # Create config collection with default storage mode
+    config_collection = db[CONFIG_COLLECTION]
+    try:
+        # Check if storage config exists, if not create default
+        existing_config = config_collection.find_one({"key": "storage_mode"})
+        if not existing_config:
+            default_config = {"key": "storage_mode", "value": "questions"}
+            config_collection.insert_one(default_config)
+            print(f"Created {CONFIG_COLLECTION} collection with default storage mode: questions")
+        else:
+            print(f"{CONFIG_COLLECTION} collection already exists with storage mode: {existing_config['value']}")
+    except Exception as e:
+        print(f"Config collection setup error: {e}")
+    
+    # Create chat_history collection
+    chat_collection = db[CHAT_HISTORY_COLLECTION]
+    
+    # Create indexes for chat_history collection
+    try:
+        # Index on session_id for fast chat retrieval
+        chat_collection.create_index("session_id")
+        # Index on timestamp for chronological ordering
+        chat_collection.create_index("timestamp")
+        # Compound index for session queries with time ordering
+        chat_collection.create_index([("session_id", 1), ("timestamp", 1)])
+        print(f"Created {CHAT_HISTORY_COLLECTION} collection with indexes.")
+    except Exception as e:
+        print(f"Chat history collection already exists or error: {e}")
+    
+    # Create questions collection
+    questions_collection = db[QUESTIONS_COLLECTION]
+    
+    # Create indexes for questions collection
+    try:
+        # Index on user_id for user-specific queries
+        questions_collection.create_index("user_id")
+        # Index on timestamp for chronological ordering
+        questions_collection.create_index("timestamp")
+        # Index on faculty for faculty-specific analytics
+        questions_collection.create_index("faculty")
+        # Text index for question content search
+        questions_collection.create_index([("question", "text")])
+        print(f"Created {QUESTIONS_COLLECTION} collection with indexes.")
+    except Exception as e:
+        print(f"Questions collection already exists or error: {e}")
+
 if __name__ == "__main__":
     setup_admin_user()
+    create_collections()
