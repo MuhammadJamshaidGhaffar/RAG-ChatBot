@@ -6,21 +6,30 @@ from langchain_core.messages.utils import count_tokens_approximately
 
 from constants import MAX_INPUT_TOKENS,END_TOKEN
 from utils import trim_chat_history, run_chain_with_retry, create_llm_chain, send_error_message, extract_variables_from_response, search_media_by_keywords
-from utils import get_media_selector_llm_chain
+from utils import get_media_selector_llm_chain, get_cached_llm_chain, get_cached_media_llm_chain, get_gemini_api_key_from_mongo
 from kyc_util import handle_kyc, send_welcome_message, save_user_data_to_collection
 from vectordb_util import get_pinecone_vector_store
 from mongo_util import get_mongo_client
 from storage_util import get_storage_config, save_interaction_data
 
-if not os.getenv("GOOGLE_API_KEY"):
-    error_msg = "❌ GOOGLE_API_KEY missing"
+# Check if Gemini API key is available from MongoDB or environment
+api_key = get_gemini_api_key_from_mongo()
+if not api_key:
+    error_msg = "❌ Gemini API key not found in MongoDB or environment variables. Please configure it in the dashboard."
     print(error_msg)
-    raise ValueError(error_msg)
+    # Don't raise error here - let it be handled gracefully when chains are used
 
-vectordb = get_pinecone_vector_store()
-chain = create_llm_chain(vectordb)
-media_selector_chain = get_media_selector_llm_chain()
+# Initialize components with error handling
+try:
+    vectordb = get_pinecone_vector_store()
+    print("✅ Vector database initialized successfully")
+except Exception as e:
+    print(f"❌ Failed to initialize vector database: {e}")
+    vectordb = None
+
 mongo_db = get_mongo_client()
+
+# Note: LLM chains will be created on-demand using cached versions
 
 @cl.on_chat_start
 async def on_chat_start():
@@ -94,6 +103,12 @@ async def handle_message(message: cl.Message):
     await msg.send()
 
     
+    # Get the cached LLM chain
+    chain = get_cached_llm_chain()
+    if not chain:
+        await cl.Message(content="❌ Unable to initialize LLM chain. Please check API key configuration.").send()
+        return
+        
     answer_chain = chain.pick("answer")
     try:
         history = cl.chat_context.to_openai()
@@ -144,6 +159,11 @@ async def handle_message(message: cl.Message):
 
             if len(images) > 3 or len(videos) > 3:
                 
+                media_selector_chain = get_cached_media_llm_chain()
+                if not media_selector_chain:
+                    await cl.Message(content="❌ Unable to initialize media selector chain. Please check API key configuration.").send()
+                    return
+                    
                 response = media_selector_chain.invoke({
                     "input": user_input,
                     "previous_response": response_text,

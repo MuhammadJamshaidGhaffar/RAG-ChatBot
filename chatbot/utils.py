@@ -16,9 +16,120 @@ import chainlit as cl
 from chainlit.message import Message
 from typing import List, Tuple, Dict
 import re
+import sys
+from pathlib import Path
+
+# Add MongoDB support
+try:
+    from pymongo import MongoClient
+    from dotenv import load_dotenv
+    load_dotenv()
+    MONGODB_AVAILABLE = True
+except ImportError:
+    MONGODB_AVAILABLE = False
+    print("⚠️ MongoDB dependencies not available - falling back to environment variables")
 
 
-from constants import FAISS_PATH, MAX_HISTORY_TOKENS, END_TOKEN, CHUNK_OVERLAP, CHUNK_SIZE, RETRIEVER_K, MAX_OUTPUT_TOKENS, IMAGES_COLLECTION, VIDEOS_COLLECTION
+from constants import FAISS_PATH, MAX_HISTORY_TOKENS, END_TOKEN, CHUNK_OVERLAP, CHUNK_SIZE, RETRIEVER_K, MAX_OUTPUT_TOKENS, IMAGES_COLLECTION, VIDEOS_COLLECTION, CONFIG_COLLECTION
+
+# Global cache for LLM instances to avoid recreating them on every request
+_cached_api_key = None
+_cached_llm_chain = None
+_cached_media_llm_chain = None
+_cached_vector_store = None
+
+def get_gemini_api_key_from_mongo():
+    """
+    Get Gemini API key from MongoDB configuration.
+    Falls back to environment variable if MongoDB is not available.
+    
+    Returns:
+        str: Gemini API key or None if not found
+    """
+    if not MONGODB_AVAILABLE:
+        print("DEBUG: MongoDB not available, using environment variable")
+        return os.getenv("GOOGLE_API_KEY")
+    
+    try:
+        # Get MongoDB connection settings from environment
+        mongodb_uri = os.getenv("MONGODB_URI")
+        mongo_db_name = os.getenv("MONGO_DB_NAME")
+        
+        if not mongodb_uri or not mongo_db_name:
+            print("DEBUG: MongoDB settings not configured, using environment variable")
+            return os.getenv("GOOGLE_API_KEY")
+        
+        # Connect to MongoDB
+        client = MongoClient(mongodb_uri)
+        db = client[mongo_db_name]
+        config_collection = db[CONFIG_COLLECTION]
+        
+        # Get Gemini API key from config collection
+        api_key_doc = config_collection.find_one({"key": "gemini_api_key"})
+        
+        if api_key_doc and api_key_doc.get("value"):
+            api_key = api_key_doc["value"].strip()
+            if api_key:
+                print("DEBUG: Successfully retrieved Gemini API key from MongoDB")
+                return api_key
+        
+        print("DEBUG: Gemini API key not found in MongoDB, using environment variable")
+        return os.getenv("GOOGLE_API_KEY")
+        
+    except Exception as e:
+        print(f"DEBUG: Error getting Gemini API key from MongoDB: {str(e)}")
+        print("DEBUG: Falling back to environment variable")
+        return os.getenv("GOOGLE_API_KEY")
+
+
+def clear_llm_cache():
+    """Clear cached LLM instances to force refresh with new API key."""
+    global _cached_api_key, _cached_llm_chain, _cached_media_llm_chain, _cached_vector_store
+    print("DEBUG: Clearing LLM cache to refresh API key")
+    _cached_api_key = None
+    _cached_llm_chain = None
+    _cached_media_llm_chain = None
+    _cached_vector_store = None
+
+
+def get_cached_llm_chain():
+    """Get cached LLM chain or create new one if API key changed."""
+    global _cached_api_key, _cached_llm_chain, _cached_vector_store
+    
+    current_api_key = get_gemini_api_key_from_mongo()
+    
+    # If API key changed or no cached instance, recreate
+    if _cached_api_key != current_api_key or _cached_llm_chain is None:
+        print("DEBUG: API key changed or no cached LLM, creating fresh instance")
+        _cached_api_key = current_api_key
+        
+        # Import here to avoid circular imports
+        from vectordb_util import get_pinecone_vector_store
+        
+        try:
+            _cached_vector_store = get_pinecone_vector_store()
+            _cached_llm_chain = create_llm_chain(_cached_vector_store)
+            print("DEBUG: Successfully created cached LLM chain with Pinecone")
+        except Exception as e:
+            print(f"ERROR: Failed to create LLM chain: {e}")
+            _cached_llm_chain = None
+    
+    return _cached_llm_chain
+
+
+def get_cached_media_llm_chain():
+    """Get cached media LLM chain or create new one if API key changed."""
+    global _cached_api_key, _cached_media_llm_chain
+    
+    current_api_key = get_gemini_api_key_from_mongo()
+    
+    # If API key changed or no cached instance, recreate
+    if _cached_api_key != current_api_key or _cached_media_llm_chain is None:
+        print("DEBUG: API key changed or no cached media LLM, creating fresh instance")
+        _cached_api_key = current_api_key
+        _cached_media_llm_chain = get_media_selector_llm_chain()
+    
+    return _cached_media_llm_chain
 
 def trim_chat_history(raw_history: list[dict]):
     print(f"DEBUG: Starting trim_chat_history with {len(raw_history)} messages")
@@ -64,7 +175,12 @@ def get_faiss_vector_store():
     print("DEBUG: Starting get_vector_store()")
     vectordb = None
 
-    embed = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
+    # Get API key from MongoDB or environment
+    api_key = get_gemini_api_key_from_mongo()
+    if not api_key:
+        raise ValueError("❌ Gemini API key not found in MongoDB or environment variables. Please configure it in the dashboard.")
+    
+    embed = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001", google_api_key=api_key)
     print("DEBUG: Created GoogleGenerativeAIEmbeddings with model: gemini-embedding-001")
 
     if os.path.exists(FAISS_PATH):
@@ -81,7 +197,7 @@ def get_faiss_vector_store():
         print(f"DEBUG: Created text splitter - chunk_size: {CHUNK_SIZE}, overlap: {CHUNK_OVERLAP}")
         
         # Create with one dummy doc (INIT_TEXT)
-        init_doc = text_splitter.create_documents([INIT_TEXT], metadatas=[{"source": "init"}])
+        init_doc = text_splitter.create_documents(["INIT_TEXT"], metadatas=[{"source": "init"}])
         print(f"DEBUG: Created {len(init_doc)} initial documents")
         vectordb = FAISS.from_documents(init_doc, embed)
         vectordb.save_local(FAISS_PATH)
@@ -92,7 +208,17 @@ def get_faiss_vector_store():
 
 def create_llm_chain(vectordb):
     print("DEBUG: Starting create_llm_chain()")
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", max_output_tokens=MAX_OUTPUT_TOKENS)
+    
+    # Check if vectordb is available
+    if vectordb is None:
+        raise ValueError("❌ Vector database not available. Please check Pinecone and API key configuration.")
+    
+    # Get API key from MongoDB or environment
+    api_key = get_gemini_api_key_from_mongo()
+    if not api_key:
+        raise ValueError("❌ Gemini API key not found in MongoDB or environment variables. Please configure it in the dashboard.")
+    
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", max_output_tokens=MAX_OUTPUT_TOKENS, google_api_key=api_key)
     print(f"DEBUG: Created LLM - model: gemini-2.5-flash, temp: 0, max_tokens: {MAX_OUTPUT_TOKENS}")
 
     # 1️⃣ setup history-aware retriever
@@ -249,10 +375,16 @@ def search_media_by_keywords(keywords: List[str], db) -> Tuple[List[Dict], List[
 def get_media_selector_llm_chain():
     print("DEBUG: Starting get_media_selector_llm_chain()")
 
+    # Get API key from MongoDB or environment
+    api_key = get_gemini_api_key_from_mongo()
+    if not api_key:
+        raise ValueError("❌ Gemini API key not found in MongoDB or environment variables. Please configure it in the dashboard.")
+
     llm_media = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         max_output_tokens=MAX_OUTPUT_TOKENS,
-        response_mime_type="application/json"
+        response_mime_type="application/json",
+        google_api_key=api_key
     )
 
     print(f"DEBUG: Created media selector LLM - model: gemini-2.5-flash, max_tokens: {MAX_OUTPUT_TOKENS}")

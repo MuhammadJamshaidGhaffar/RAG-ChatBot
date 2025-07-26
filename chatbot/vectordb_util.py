@@ -10,6 +10,27 @@ from uuid import uuid4
 
 from constants import CHUNK_OVERLAP, CHUNK_SIZE
 
+def get_gemini_embeddings():
+    """Get GoogleGenerativeAI embeddings with dynamic API key"""
+    try:
+        # Import here to avoid circular imports
+        from utils import get_gemini_api_key_from_mongo
+        
+        api_key = get_gemini_api_key_from_mongo()
+        if not api_key:
+            # Fallback to environment variable
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                raise ValueError("Gemini API key not found in MongoDB or environment variables")
+        
+        return GoogleGenerativeAIEmbeddings(
+            model="gemini-embedding-001",
+            google_api_key=api_key
+        )
+    except Exception as e:
+        print(f"ERROR: Failed to create embeddings: {e}")
+        raise
+
 if not os.getenv("PINECONE_API_KEY"):
     raise Exception("DEBUG: PINECONE_API_KEY not set in environment variables. Please set it before running the script.")
 
@@ -36,8 +57,8 @@ def get_pinecone_vector_store():
 
 
     index = pc.Index(index_name)
-    print("DEBUG: Created GoogleGenerativeAIEmbeddings with model: gemini-embedding-001")
-    embed = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
+    print("DEBUG: Creating GoogleGenerativeAIEmbeddings with dynamic API key")
+    embed = get_gemini_embeddings()
     vector_store = PineconeVectorStore(index=index, embedding=embed)
 
     return vector_store

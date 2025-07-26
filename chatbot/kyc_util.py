@@ -6,6 +6,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from mongo_util import get_mongo_client
 from constants import USERS_COLLECTION
+from utils import get_gemini_api_key_from_mongo
 
 FACULTIES = [
     "oral and dental",
@@ -25,10 +26,29 @@ def is_valid_mobile(mobile):
 def is_valid_faculty(faculty):
     return faculty.lower() in [f.lower() for f in FACULTIES]
 
+def get_kyc_llm():
+    """Get LLM instance with dynamic API key for KYC operations"""
+    api_key = get_gemini_api_key_from_mongo()
+    if not api_key:
+        raise ValueError("Gemini API key not available for KYC operations")
+    
+    return ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash", 
+        response_mime_type="application/json",
+        google_api_key=api_key
+    )
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash", response_mime_type="application/json"
-)
+def get_message_llm():
+    """Get LLM instance with dynamic API key for message generation"""
+    api_key = get_gemini_api_key_from_mongo()
+    if not api_key:
+        raise ValueError("Gemini API key not available for message generation")
+    
+    return ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash", 
+        response_mime_type="application/json",
+        google_api_key=api_key
+    )
 
 prompt = PromptTemplate.from_template("""
 You are an admission assistant for a university. From the user message below, extract these fields:
@@ -57,13 +77,16 @@ User message:
 {message}
 """)
 
-kyc_chain = prompt | llm
+def get_kyc_chain():
+    """Get KYC chain with dynamic API key"""
+    try:
+        llm = get_kyc_llm()
+        return prompt | llm
+    except Exception as e:
+        print(f"ERROR: Failed to create KYC chain: {e}")
+        return None
 
 # LLM chain for generating dynamic validation and completion messages
-message_llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash", response_mime_type="application/json"
-)
-
 message_prompt = PromptTemplate.from_template("""
 You are an admission assistant for Future University in Egypt (FUE). Generate appropriate response messages based on the KYC validation results.
 
@@ -94,7 +117,14 @@ If there are missing fields or validation errors:
 Make the messages friendly, professional, and specific to the issues found. Use emojis appropriately.
 """)
 
-message_chain = message_prompt | message_llm
+def get_message_chain():
+    """Get message chain with dynamic API key"""
+    try:
+        message_llm = get_message_llm()
+        return message_prompt | message_llm
+    except Exception as e:
+        print(f"ERROR: Failed to create message chain: {e}")
+        return None
 
 async def send_welcome_message():
     cl.user_session.set("kyc", {})
@@ -167,9 +197,20 @@ async def handle_kyc(message: cl.Message):
     print(f"DEBUG: Current KYC state: {kyc}")
     print(f"DEBUG: User message: {message.content}")
 
+    # Get KYC chain with dynamic API key
+    kyc_chain = get_kyc_chain()
+    if not kyc_chain:
+        await cl.Message(content="❌ Unable to process your request. Please check API key configuration.").send()
+        return False
+
     # Extract fields using Gemini
-    response = kyc_chain.invoke({"message": message.content, "faculties": FACULTIES})
-    print(f"DEBUG: LLM response: {response.content}")
+    try:
+        response = kyc_chain.invoke({"message": message.content, "faculties": FACULTIES})
+        print(f"DEBUG: LLM response: {response.content}")
+    except Exception as e:
+        print(f"DEBUG: Error invoking KYC chain: {e}")
+        await cl.Message(content="⚠️ Sorry, I couldn't process your message. Please try again.").send()
+        return False
     
     try:
         extracted = json.loads(response.content)
@@ -220,6 +261,22 @@ async def handle_kyc(message: cl.Message):
 
     # Generate dynamic response message
     try:
+        message_chain = get_message_chain()
+        if not message_chain:
+            print("DEBUG: Failed to create message chain, using fallback")
+            # Fallback to simple status message
+            if not missing and not validation_errors:
+                await cl.Message(
+                    content=f"✅ Great, {kyc.get('name', 'there')}! Your information is complete. You can now ask questions about university admissions."
+                ).send()
+                return True
+            else:
+                fallback_msg = "Please provide any missing information to continue."
+                if missing:
+                    fallback_msg = f"Missing: {', '.join(missing)}. " + fallback_msg
+                await cl.Message(content=fallback_msg).send()
+                return False
+        
         message_response = message_chain.invoke({
             "kyc_state": str(kyc),
             "missing_fields": missing,
