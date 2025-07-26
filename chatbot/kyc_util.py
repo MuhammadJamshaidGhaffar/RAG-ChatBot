@@ -6,7 +6,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from mongo_util import get_mongo_client
 from constants import USERS_COLLECTION
-from utils import get_gemini_api_key_from_mongo
+from utils import get_gemini_api_key_from_mongo, send_error_message
 
 FACULTIES = [
     "oral and dental",
@@ -200,7 +200,7 @@ async def handle_kyc(message: cl.Message):
     # Get KYC chain with dynamic API key
     kyc_chain = get_kyc_chain()
     if not kyc_chain:
-        await cl.Message(content="❌ Unable to process your request. Please check API key configuration.").send()
+        await send_error_message("❌ Unable to process your request. Please check API key configuration.", message)
         return False
 
     # Extract fields using Gemini
@@ -209,7 +209,7 @@ async def handle_kyc(message: cl.Message):
         print(f"DEBUG: LLM response: {response.content}")
     except Exception as e:
         print(f"DEBUG: Error invoking KYC chain: {e}")
-        await cl.Message(content="⚠️ Sorry, I couldn't process your message. Please try again.").send()
+        await send_error_message("⚠️ Sorry, I couldn't process your message. Please try again.", message)
         return False
     
     try:
@@ -218,7 +218,7 @@ async def handle_kyc(message: cl.Message):
             
     except Exception as error:
         print(f"DEBUG: Error parsing LLM response: {error}")
-        await cl.Message(content="⚠️ Sorry, I couldn't understand your message. Please try again.").send()
+        await send_error_message("⚠️ Sorry, I couldn't understand your message. Please try again.", message)
         return
 
     # Update non-null values

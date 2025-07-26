@@ -106,7 +106,7 @@ async def handle_message(message: cl.Message):
     # Get the cached LLM chain
     chain = get_cached_llm_chain()
     if not chain:
-        await cl.Message(content="❌ Unable to initialize LLM chain. Please check API key configuration.").send()
+        await send_error_message("❌ Unable to initialize LLM chain. Please check API key configuration.", message)
         return
         
     answer_chain = chain.pick("answer")
@@ -161,7 +161,7 @@ async def handle_message(message: cl.Message):
                 
                 media_selector_chain = get_cached_media_llm_chain()
                 if not media_selector_chain:
-                    await cl.Message(content="❌ Unable to initialize media selector chain. Please check API key configuration.").send()
+                    await send_error_message("❌ Unable to initialize media selector chain. Please check API key configuration.", message)
                     return
                     
                 response = media_selector_chain.invoke({
