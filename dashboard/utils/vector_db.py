@@ -16,6 +16,58 @@ if not os.getenv("PINECONE_API_KEY"):
     raise Exception("DEBUG: PINECONE_API_KEY not set in environment variables. Please set it before running the script.")
 
 
+def get_gemini_api_key_from_mongo():
+    """Get Gemini API key from MongoDB config collection with fallback to environment variable"""
+    try:
+        # Import here to avoid circular imports
+        import sys
+        from pathlib import Path
+        
+        # Add database path to sys.path
+        project_root = Path(__file__).parent.parent.parent
+        sys.path.append(str(project_root / "database"))
+        
+        from mongo_client import get_mongo_client
+        
+        # Get from MongoDB config collection
+        db = get_mongo_client()
+        config_collection = db["config"]
+        
+        gemini_config = config_collection.find_one({"key": "gemini_api_key"})
+        if gemini_config and gemini_config.get("value"):
+            api_key = gemini_config["value"]
+            print("DEBUG: Using Gemini API key from MongoDB config")
+            return api_key
+            
+    except Exception as e:
+        print(f"DEBUG: Error fetching Gemini API key from MongoDB: {e}")
+    
+    # Fallback to environment variable
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if api_key:
+        print("DEBUG: Using Gemini API key from environment variable")
+        return api_key
+    
+    print("DEBUG: No Gemini API key found in MongoDB or environment")
+    return None
+
+
+def get_gemini_embeddings():
+    """Get GoogleGenerativeAI embeddings with dynamic API key"""
+    try:
+        api_key = get_gemini_api_key_from_mongo()
+        if not api_key:
+            raise ValueError("Gemini API key not found in MongoDB or environment variables")
+        
+        return GoogleGenerativeAIEmbeddings(
+            model="gemini-embedding-001",
+            google_api_key=api_key
+        )
+    except Exception as e:
+        print(f"ERROR: Failed to create embeddings: {e}")
+        raise
+
+
 def get_pinecone_vector_store():
     """
     Initialize and return Pinecone vector store
@@ -40,8 +92,8 @@ def get_pinecone_vector_store():
 
     index = pc.Index(index_name)
 
-    print("DEBUG: Created GoogleGenerativeAIEmbeddings with model: gemini-embedding-001")
-    embed = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
+    print("DEBUG: Creating GoogleGenerativeAIEmbeddings with dynamic API key")
+    embed = get_gemini_embeddings()
     
     vector_store = PineconeVectorStore(index=index, embedding=embed)
 
