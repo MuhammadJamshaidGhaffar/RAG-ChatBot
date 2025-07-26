@@ -106,6 +106,52 @@ class ConfigurationService:
         except Exception as e:
             print(f"❌ Error getting all settings: {str(e)}")
             return {}
+    
+    def get_gemini_api_key(self) -> str:
+        """
+        Get Gemini API key from configuration
+        
+        Returns:
+            API key string or empty string if not configured
+        """
+        try:
+            config = self.config_collection.find_one({"key": "gemini_api_key"})
+            if config:
+                return config.get("value", "")
+            return ""
+        except Exception as e:
+            print(f"❌ Error getting Gemini API key: {str(e)}")
+            return ""
+    
+    def update_gemini_api_key(self, api_key: str) -> bool:
+        """
+        Update Gemini API key in configuration
+        
+        Args:
+            api_key: New API key value
+            
+        Returns:
+            Success status
+        """
+        try:
+            update_data = {
+                "$set": {
+                    "key": "gemini_api_key",
+                    "value": api_key.strip(),
+                    "updated_at": datetime.now().isoformat()
+                }
+            }
+            
+            result = self.config_collection.update_one(
+                {"key": "gemini_api_key"},
+                update_data,
+                upsert=True
+            )
+            
+            return result.modified_count > 0 or result.upserted_id is not None
+        except Exception as e:
+            print(f"❌ Error updating Gemini API key: {str(e)}")
+            return False
 
 
 # Global configuration service instance

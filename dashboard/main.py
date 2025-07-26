@@ -13,7 +13,15 @@ from app.middleware.auth import AuthMiddleware
 from app.routes.auth import login_page, login_submit, logout
 from app.routes.main import home, upload_file, upload_page
 from app.routes.dashboard import dashboard, change_password
-from app.routes.config import get_chat_storage_setting, update_chat_storage_setting, get_all_settings, ChatStorageToggle
+from app.routes.config import (
+    get_chat_storage_setting, 
+    update_chat_storage_setting, 
+    get_all_settings, 
+    ChatStorageToggle,
+    get_gemini_api_key,
+    update_gemini_api_key,
+    GeminiApiKeyUpdate
+)
 
 
 def create_app() -> FastAPI:
@@ -137,6 +145,18 @@ async def post_chat_storage_config(toggle_data: ChatStorageToggle):
 async def get_all_config(request: Request):
     """Get all configuration settings"""
     return await get_all_settings(request)
+
+
+@app.get("/api/config/gemini-api-key")
+async def get_gemini_api_key_config(request: Request):
+    """Get Gemini API key configuration (masked)"""
+    return await get_gemini_api_key(request)
+
+
+@app.post("/api/config/gemini-api-key")
+async def post_gemini_api_key_config(api_key_data: GeminiApiKeyUpdate):
+    """Update Gemini API key configuration"""
+    return await update_gemini_api_key(api_key_data)
 
 
 # ==================== APPLICATION STARTUP ====================

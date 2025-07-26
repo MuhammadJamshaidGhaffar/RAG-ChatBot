@@ -318,6 +318,67 @@
         </div>
       </div>
 
+      <!-- Gemini API Key Configuration -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0"><i class="bi bi-key"></i> Gemini AI Configuration</h5>
+            </div>
+            <div class="card-body">
+              <p class="text-muted">
+                Configure your Google Gemini AI API key for enhanced AI responses.
+              </p>
+              
+              <div class="mb-3">
+                <label for="geminiApiKey" class="form-label">
+                  <strong>Gemini API Key</strong>
+                  <span id="apiKeyStatus" class="badge bg-secondary ms-2">Not Configured</span>
+                </label>
+                <div class="input-group">
+                  <input 
+                    type="password" 
+                    class="form-control" 
+                    id="geminiApiKey"
+                    placeholder="Enter your Gemini API key..."
+                    autocomplete="off"
+                  >
+                  <button 
+                    class="btn btn-outline-secondary" 
+                    type="button" 
+                    id="toggleApiKeyVisibility"
+                    title="Toggle visibility"
+                  >
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  <button 
+                    class="btn btn-fue-primary" 
+                    type="button" 
+                    id="updateApiKeyBtn"
+                  >
+                    <i class="bi bi-check"></i> Update
+                  </button>
+                </div>
+                <div class="form-text">
+                  <i class="bi bi-info-circle"></i>
+                  Your API key is securely stored and only the first/last 4 characters are displayed.
+                  <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-decoration-none">
+                    Get your API key <i class="bi bi-box-arrow-up-right"></i>
+                  </a>
+                </div>
+              </div>
+              
+              <div class="alert alert-warning">
+                <i class="bi bi-shield-exclamation"></i>
+                <strong>Security Note:</strong> Keep your API key confidential. Never share it publicly or commit it to version control.
+              </div>
+              
+              <div id="geminiApiMessage" class="mt-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Quick Actions -->
       <div class="row">
         <div class="col-12">
@@ -546,6 +607,100 @@
           } else {
             toggleLabel.textContent = "Save Questions Only";
             toggleDescription.textContent = "Currently saving only user questions to MongoDB (responses not stored)";
+          }
+        }
+
+        // Gemini API Key Management
+        const apiKeyInput = document.getElementById("geminiApiKey");
+        const apiKeyStatus = document.getElementById("apiKeyStatus");
+        const toggleVisibilityBtn = document.getElementById("toggleApiKeyVisibility");
+        const updateApiKeyBtn = document.getElementById("updateApiKeyBtn");
+        const geminiApiMessage = document.getElementById("geminiApiMessage");
+
+        // Load current API key status
+        loadGeminiApiKeyStatus();
+
+        // Toggle API key visibility
+        toggleVisibilityBtn.addEventListener("click", function() {
+          const isPassword = apiKeyInput.type === "password";
+          apiKeyInput.type = isPassword ? "text" : "password";
+          const icon = this.querySelector("i");
+          icon.className = isPassword ? "bi bi-eye-slash" : "bi bi-eye";
+        });
+
+        // Update API key
+        updateApiKeyBtn.addEventListener("click", function() {
+          updateGeminiApiKey();
+        });
+
+        // Allow Enter key to update API key
+        apiKeyInput.addEventListener("keypress", function(e) {
+          if (e.key === "Enter") {
+            updateGeminiApiKey();
+          }
+        });
+
+        async function loadGeminiApiKeyStatus() {
+          try {
+            const response = await fetch("/api/config/gemini-api-key");
+            const data = await response.json();
+
+            if (data.success) {
+              if (data.is_configured) {
+                apiKeyStatus.className = "badge bg-success ms-2";
+                apiKeyStatus.textContent = "Configured";
+                apiKeyInput.placeholder = `Current key: ${data.api_key}`;
+              } else {
+                apiKeyStatus.className = "badge bg-warning ms-2";
+                apiKeyStatus.textContent = "Not Configured";
+                apiKeyInput.placeholder = "Enter your Gemini API key...";
+              }
+            }
+          } catch (error) {
+            console.error("Error loading Gemini API key status:", error);
+            apiKeyStatus.className = "badge bg-danger ms-2";
+            apiKeyStatus.textContent = "Error";
+          }
+        }
+
+        async function updateGeminiApiKey() {
+          const apiKey = apiKeyInput.value.trim();
+          
+          if (!apiKey) {
+            showMessage(geminiApiMessage, "Please enter an API key", "warning");
+            return;
+          }
+
+          // Disable button during update
+          updateApiKeyBtn.disabled = true;
+          updateApiKeyBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Updating...';
+
+          try {
+            const response = await fetch("/api/config/gemini-api-key", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                api_key: apiKey
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+              showMessage(geminiApiMessage, data.message, "success");
+              apiKeyInput.value = ""; // Clear input for security
+              loadGeminiApiKeyStatus(); // Reload status
+            } else {
+              showMessage(geminiApiMessage, data.message, "danger");
+            }
+          } catch (error) {
+            showMessage(geminiApiMessage, "Error updating API key: " + error.message, "danger");
+          } finally {
+            // Re-enable button
+            updateApiKeyBtn.disabled = false;
+            updateApiKeyBtn.innerHTML = '<i class="bi bi-check"></i> Update';
           }
         }
 

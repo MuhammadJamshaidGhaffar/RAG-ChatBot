@@ -19,7 +19,14 @@ sys.path.append(str(project_root))
 
 # custom imports
 from database.mongo_client import get_mongo_client
-from constants import ADMIN_USERS_COLLECTION_NAME, IMAGES_COLLECTION, VIDEOS_COLLECTION
+from utils.constants import (
+    ADMIN_USERS_COLLECTION_NAME, 
+    IMAGES_COLLECTION, 
+    VIDEOS_COLLECTION, 
+    CONFIG_COLLECTION,
+    CHAT_HISTORY_COLLECTION,
+    QUESTIONS_COLLECTION
+)
 
 
 def setup_admin_user():
@@ -71,7 +78,10 @@ def setup_admin_user():
 def create_collections():
     """Create chat_history and questions collections with proper indexes."""
     
-    # Create config collection with default storage mode
+    # Connect to MongoDB
+    db = get_mongo_client()
+    
+    # Create config collection with default storage mode and Gemini API key
     config_collection = db[CONFIG_COLLECTION]
     try:
         # Check if storage config exists, if not create default
@@ -82,6 +92,26 @@ def create_collections():
             print(f"Created {CONFIG_COLLECTION} collection with default storage mode: questions")
         else:
             print(f"{CONFIG_COLLECTION} collection already exists with storage mode: {existing_config['value']}")
+            
+        # Check if Gemini API key config exists, if not create placeholder
+        existing_gemini_config = config_collection.find_one({"key": "gemini_api_key"})
+        if not existing_gemini_config:
+            # Get from environment or create placeholder
+            gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+            gemini_config = {
+                "key": "gemini_api_key", 
+                "value": gemini_api_key,
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc)
+            }
+            config_collection.insert_one(gemini_config)
+            if gemini_api_key:
+                print(f"✅ Gemini API key configured from environment")
+            else:
+                print(f"⚠️  Gemini API key placeholder created - configure via dashboard")
+        else:
+            print(f"ℹ️  Gemini API key configuration already exists")
+            
     except Exception as e:
         print(f"Config collection setup error: {e}")
     
