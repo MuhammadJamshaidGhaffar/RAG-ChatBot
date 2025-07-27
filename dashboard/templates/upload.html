@@ -156,6 +156,44 @@
         border-color: var(--fue-burgundy);
         color: white;
       }
+
+      .status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 5px;
+      }
+
+      .status-processing {
+        background-color: #17a2b8;
+        animation: pulse 2s infinite;
+      }
+
+      .status-retrying {
+        background-color: #ffc107;
+        animation: pulse 1s infinite;
+      }
+
+      .status-completed {
+        background-color: #28a745;
+      }
+
+      .status-partial {
+        background-color: #fd7e14;
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
     </style>
   </head>
 
@@ -199,21 +237,41 @@
         </div>
         <h1 class="page-title">Upload Content to Ask Nour</h1>
         <p class="text-muted">
-          Choose the type of content you want to upload to the FUE Knowledge Companion
+          Choose the type of content you want to upload to the FUE Knowledge
+          Companion
         </p>
       </div>
 
       <!-- Upload Type Selector -->
       <div class="row mb-4">
         <div class="col-12">
-          <div class="btn-group w-100" role="group" aria-label="Upload type selector">
-            <button type="button" class="btn btn-outline-primary active" id="documentTab" onclick="showUploadType('document')">
+          <div
+            class="btn-group w-100"
+            role="group"
+            aria-label="Upload type selector"
+          >
+            <button
+              type="button"
+              class="btn btn-outline-primary active"
+              id="documentTab"
+              onclick="showUploadType('document')"
+            >
               <i class="bi bi-file-earmark-text"></i> Documents
             </button>
-            <button type="button" class="btn btn-outline-primary" id="imagesTab" onclick="showUploadType('images')">
+            <button
+              type="button"
+              class="btn btn-outline-primary"
+              id="imagesTab"
+              onclick="showUploadType('images')"
+            >
               <i class="bi bi-images"></i> Images CSV
             </button>
-            <button type="button" class="btn btn-outline-primary" id="videosTab" onclick="showUploadType('videos')">
+            <button
+              type="button"
+              class="btn btn-outline-primary"
+              id="videosTab"
+              onclick="showUploadType('videos')"
+            >
               <i class="bi bi-camera-video"></i> Videos CSV
             </button>
           </div>
@@ -224,9 +282,11 @@
       <div id="documentUpload" class="upload-section">
         <div class="alert alert-info">
           <i class="bi bi-info-circle"></i>
-          <strong>Documents for Knowledge Base:</strong> Upload PDF, TXT, or DOCX files to add content to the AI knowledge base for student questions.
+          <strong>Documents for Knowledge Base:</strong> Upload PDF, TXT, or
+          DOCX files to add content to the AI knowledge base for student
+          questions.
         </div>
-        
+
         <form id="documentForm">
           <div class="mb-4">
             <label for="documentInput" class="form-label">
@@ -254,27 +314,28 @@
         </form>
 
         <div class="msg" id="documentMessage"></div>
-        <div id="documentProgress" class="mt-3" style="display: none">
-          <div class="progress">
-            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
-          </div>
-          <small class="text-muted">Processing your document...</small>
-        </div>
       </div>
 
       <!-- Images CSV Upload Form -->
-      <div id="imagesUpload" class="upload-section" style="display: none;">
+      <div id="imagesUpload" class="upload-section" style="display: none">
         <div class="alert alert-warning">
           <i class="bi bi-info-circle"></i>
-          <strong>Images CSV Upload:</strong> Upload a CSV file containing image URLs and descriptions for the chatbot's media responses.
+          <strong>Images CSV Upload:</strong> Upload a CSV file containing image
+          URLs and descriptions for the chatbot's media responses.
         </div>
-        
+
         <div class="alert alert-light">
-          <strong>CSV Format:</strong><br>
-          <code>Column 1: Image URL (required)<br>Column 2: Description (optional)</code><br>
-          <small class="text-muted">Headers can be anything or omitted entirely. First row is automatically skipped.</small>
+          <strong>CSV Format:</strong><br />
+          <code
+            >Column 1: Image URL (required)<br />Column 2: Description
+            (optional)</code
+          ><br />
+          <small class="text-muted"
+            >Headers can be anything or omitted entirely. First row is
+            automatically skipped.</small
+          >
         </div>
-        
+
         <form id="imagesForm">
           <div class="mb-4">
             <label for="imagesInput" class="form-label">
@@ -304,25 +365,36 @@
         <div class="msg" id="imagesMessage"></div>
         <div id="imagesProgress" class="mt-3" style="display: none">
           <div class="progress">
-            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+            <div
+              class="progress-bar progress-bar-striped progress-bar-animated"
+              role="progressbar"
+              style="width: 0%"
+            ></div>
           </div>
           <small class="text-muted">Processing your images CSV...</small>
         </div>
       </div>
 
       <!-- Videos CSV Upload Form -->
-      <div id="videosUpload" class="upload-section" style="display: none;">
+      <div id="videosUpload" class="upload-section" style="display: none">
         <div class="alert alert-success">
           <i class="bi bi-info-circle"></i>
-          <strong>Videos CSV Upload:</strong> Upload a CSV file containing video URLs and descriptions for the chatbot's media responses.
+          <strong>Videos CSV Upload:</strong> Upload a CSV file containing video
+          URLs and descriptions for the chatbot's media responses.
         </div>
-        
+
         <div class="alert alert-light">
-          <strong>CSV Format:</strong><br>
-          <code>Column 1: Video URL with platform prefix (required)<br>Column 2: Description (optional)</code><br>
-          <small class="text-muted">Use "youtube:" or "facebook:" prefix. Headers can be anything or omitted entirely.</small>
+          <strong>CSV Format:</strong><br />
+          <code
+            >Column 1: Video URL with platform prefix (required)<br />Column 2:
+            Description (optional)</code
+          ><br />
+          <small class="text-muted"
+            >Use "youtube:" or "facebook:" prefix. Headers can be anything or
+            omitted entirely.</small
+          >
         </div>
-        
+
         <form id="videosForm">
           <div class="mb-4">
             <label for="videosInput" class="form-label">
@@ -352,7 +424,11 @@
         <div class="msg" id="videosMessage"></div>
         <div id="videosProgress" class="mt-3" style="display: none">
           <div class="progress">
-            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+            <div
+              class="progress-bar progress-bar-striped progress-bar-animated"
+              role="progressbar"
+              style="width: 0%"
+            ></div>
           </div>
           <small class="text-muted">Processing your videos CSV...</small>
         </div>
@@ -366,30 +442,118 @@
       // Tab switching functionality
       function showUploadType(type) {
         // Hide all sections
-        document.getElementById('documentUpload').style.display = 'none';
-        document.getElementById('imagesUpload').style.display = 'none';
-        document.getElementById('videosUpload').style.display = 'none';
+        document.getElementById("documentUpload").style.display = "none";
+        document.getElementById("imagesUpload").style.display = "none";
+        document.getElementById("videosUpload").style.display = "none";
 
         // Remove active class from all tabs
-        document.getElementById('documentTab').classList.remove('active');
-        document.getElementById('imagesTab').classList.remove('active');
-        document.getElementById('videosTab').classList.remove('active');
+        document.getElementById("documentTab").classList.remove("active");
+        document.getElementById("imagesTab").classList.remove("active");
+        document.getElementById("videosTab").classList.remove("active");
 
         // Show selected section and activate tab
-        if (type === 'document') {
-          document.getElementById('documentUpload').style.display = 'block';
-          document.getElementById('documentTab').classList.add('active');
-        } else if (type === 'images') {
-          document.getElementById('imagesUpload').style.display = 'block';
-          document.getElementById('imagesTab').classList.add('active');
-        } else if (type === 'videos') {
-          document.getElementById('videosUpload').style.display = 'block';
-          document.getElementById('videosTab').classList.add('active');
+        if (type === "document") {
+          document.getElementById("documentUpload").style.display = "block";
+          document.getElementById("documentTab").classList.add("active");
+        } else if (type === "images") {
+          document.getElementById("imagesUpload").style.display = "block";
+          document.getElementById("imagesTab").classList.add("active");
+        } else if (type === "videos") {
+          document.getElementById("videosUpload").style.display = "block";
+          document.getElementById("videosTab").classList.add("active");
         }
       }
 
-      // Generic upload function
-      async function handleUpload(formId, endpoint, inputId, messageId, progressId) {
+      // Simple upload function for documents
+      async function handleDocumentUpload() {
+        const form = document.getElementById("documentForm");
+        const fileInput = document.getElementById("documentInput");
+        const messageBox = document.getElementById("documentMessage");
+
+        if (!fileInput.files[0]) {
+          messageBox.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="bi bi-exclamation-triangle"></i> Please select a file first.
+            </div>
+          `;
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        messageBox.innerHTML = `
+          <div class="alert alert-info">
+            <i class="bi bi-upload"></i> Uploading and processing your document... This may take a few minutes for large files.
+          </div>
+        `;
+
+        try {
+          const response = await fetch("/upload/document", {
+            method: "POST",
+            body: formData,
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            let alertClass = "alert-success";
+            let icon = "bi-check-circle";
+
+            // Check if there were any details about partial success
+            if (result.details && result.details.failed_batches > 0) {
+              alertClass = "alert-warning";
+              icon = "bi-exclamation-triangle";
+            }
+
+            messageBox.innerHTML = `
+              <div class="alert ${alertClass}">
+                <i class="bi ${icon}"></i> ${
+              result.message || "Upload successful!"
+            }
+                ${
+                  result.details
+                    ? `
+                  <hr>
+                  <small>
+                    <strong>Upload Statistics:</strong><br>
+                    • Total chunks: ${result.details.total_chunks}<br>
+                    • Successful: ${result.details.successful_chunks}<br>
+                    • Failed batches: ${result.details.failed_batches}<br>
+                    • Success rate: ${result.details.success_rate}
+                  </small>
+                `
+                    : ""
+                }
+              </div>
+            `;
+            fileInput.value = ""; // Clear the input
+          } else {
+            messageBox.innerHTML = `
+              <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> ${
+                  result.message || "Upload failed"
+                }
+              </div>
+            `;
+          }
+        } catch (error) {
+          messageBox.innerHTML = `
+            <div class="alert alert-danger">
+              <i class="bi bi-exclamation-triangle"></i> Network error: ${error.message}
+            </div>
+          `;
+        }
+      }
+
+      // Generic upload function for CSV files
+      async function handleUpload(
+        formId,
+        endpoint,
+        inputId,
+        messageId,
+        progressId
+      ) {
         const form = document.getElementById(formId);
         const fileInput = document.getElementById(inputId);
         const messageBox = document.getElementById(messageId);
@@ -426,14 +590,18 @@
           if (response.ok) {
             messageBox.innerHTML = `
               <div class="alert alert-success">
-                <i class="bi bi-check-circle"></i> ${result.message || "Upload successful!"}
+                <i class="bi bi-check-circle"></i> ${
+                  result.message || "Upload successful!"
+                }
               </div>
             `;
             fileInput.value = ""; // Clear the input
           } else {
             messageBox.innerHTML = `
               <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> ${result.message || "Upload failed"}
+                <i class="bi bi-exclamation-triangle"></i> ${
+                  result.message || "Upload failed"
+                }
               </div>
             `;
           }
@@ -448,23 +616,41 @@
         }
       }
 
-      // Document upload handler
-      document.getElementById('documentForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await handleUpload('documentForm', '/upload/document', 'documentInput', 'documentMessage', 'documentProgress');
-      });
+      // Document upload handler with enhanced progress
+      document
+        .getElementById("documentForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+          await handleDocumentUpload();
+        });
 
       // Images CSV upload handler
-      document.getElementById('imagesForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await handleUpload('imagesForm', '/upload/images-csv', 'imagesInput', 'imagesMessage', 'imagesProgress');
-      });
+      document
+        .getElementById("imagesForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+          await handleUpload(
+            "imagesForm",
+            "/upload/images-csv",
+            "imagesInput",
+            "imagesMessage",
+            "imagesProgress"
+          );
+        });
 
       // Videos CSV upload handler
-      document.getElementById('videosForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await handleUpload('videosForm', '/upload/videos-csv', 'videosInput', 'videosMessage', 'videosProgress');
-      });
+      document
+        .getElementById("videosForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+          await handleUpload(
+            "videosForm",
+            "/upload/videos-csv",
+            "videosInput",
+            "videosMessage",
+            "videosProgress"
+          );
+        });
     </script>
   </body>
 </html>

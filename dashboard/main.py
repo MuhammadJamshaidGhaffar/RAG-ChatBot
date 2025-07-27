@@ -6,10 +6,14 @@ Main entry point for the document upload and management system.
 from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+import json
+import asyncio
 
 # Local imports
 from app.core.config import settings
 from app.middleware.auth import AuthMiddleware
+
+
 from app.routes.auth import login_page, login_submit, logout
 from app.routes.main import home, upload_file, upload_page
 from app.routes.dashboard import dashboard, change_password
