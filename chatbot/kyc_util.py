@@ -359,13 +359,22 @@ async def handle_kyc(message: cl.Message):
                         "user_message": message.content
                     })
                     
+                    # Collect welcome tokens and stream smoothly
+                    welcome_content = ""
                     for chunk in welcome_stream:
                         if hasattr(chunk, 'content'):
                             token = chunk.content
-                            await welcome_msg.stream_token(token)
-                            # Force flush with visible delay for streaming effect
+                            welcome_content += token
+                    
+                    # Stream the welcome content in chunks
+                    if welcome_content.strip():
+                        chunk_size = 3  # Stream 3 characters at a time
+                        for i in range(0, len(welcome_content), chunk_size):
+                            content_chunk = welcome_content[i:i + chunk_size]
+                            await welcome_msg.stream_token(content_chunk)
+                            # Small delay for streaming effect
                             import asyncio
-                            await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
+                            await asyncio.sleep(0.02)
                     
                     await welcome_msg.update()
                 else:
@@ -498,45 +507,48 @@ async def handle_kyc(message: cl.Message):
             })
             
             response_text = ""
-            found_end = False
             
+            # Collect all tokens first, then stream the clean part
+            all_tokens = []
             for chunk in response_stream:
                 if hasattr(chunk, 'content'):
                     token = chunk.content
+                    all_tokens.append(token)
                     response_text += token
+                    print(f"DEBUG: Received KYC token: '{token}', total response length: {len(response_text)}")
                     
-                    print(f"DEBUG: Streaming KYC token: {token}")
-                    
-                    if not found_end:
-                        # Check if END_TOKEN appears in the accumulated response_text
-                        if END_TOKEN in response_text:
-                            # Find where END_TOKEN starts in the accumulated text
-                            end_token_index = response_text.find(END_TOKEN)
-                            
-                            # Calculate how much text we should have streamed up to END_TOKEN
-                            text_before_end = response_text[:end_token_index]
-                            
-                            # Calculate how much we've already streamed (length before this token)
-                            already_streamed_length = len(response_text) - len(token)
-                            
-                            # Calculate how much of the current token to stream
-                            remaining_to_stream = len(text_before_end) - already_streamed_length
-                            
-                            if remaining_to_stream > 0:
-                                # Stream only the part before END_TOKEN
-                                token_to_stream = token[:remaining_to_stream]
-                                await msg.stream_token(token_to_stream)
-                                # Force flush with visible delay for streaming effect
-                                import asyncio
-                                await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
-                            
-                            found_end = True  # Stop streaming further tokens
-                        else:
-                            # No END_TOKEN found yet, stream the entire token
-                            await msg.stream_token(token)
-                            # Force flush with visible delay for streaming effect
-                            import asyncio
-                            await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
+                    # If we detect END_TOKEN, stop collecting
+                    if END_TOKEN in response_text:
+                        print(f"DEBUG: END_TOKEN detected in KYC response, stopping token collection")
+                        break
+            
+            # Extract the clean content (everything before END_TOKEN)
+            clean_content = response_text.split(END_TOKEN)[0] if END_TOKEN in response_text else response_text
+            
+            # Now stream the clean content in chunks with proper timing
+            if clean_content.strip():
+                print(f"DEBUG: Streaming clean KYC content: '{clean_content[:100]}...'")
+                # Stream in small chunks for better visual effect
+                chunk_size = 3  # Stream 3 characters at a time
+                for i in range(0, len(clean_content), chunk_size):
+                    content_chunk = clean_content[i:i + chunk_size]
+                    await msg.stream_token(content_chunk)
+                    # Small delay for streaming effect
+                    import asyncio
+                    await asyncio.sleep(0.02)
+                print(f"DEBUG: Finished streaming {len(clean_content)} KYC characters")
+            else:
+                print("DEBUG: No clean KYC content to stream")
+                await msg.stream_token("I'm processing your information. Please wait...")
+            
+            # FINAL SAFETY CHECK: Ensure no END_TOKEN appears in the visible message
+            current_message_content = msg.content if hasattr(msg, 'content') and msg.content else ""
+            if END_TOKEN in current_message_content:
+                print(f"WARNING: END_TOKEN found in KYC message content, cleaning it up")
+                cleaned_content = current_message_content.split(END_TOKEN)[0]
+                msg.content = cleaned_content
+                await msg.update()
+                print(f"DEBUG: Cleaned KYC message content to: '{cleaned_content[:100]}...'")
             
             # Extract variables from response
             completion_status, show_register_button = extract_kyc_variables_from_response(response_text)

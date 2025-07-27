@@ -250,11 +250,26 @@ def create_llm_chain(vectordb):
     # 2️⃣ setup document combiner
     system_prompt = (
         "You are Ask Nour, a friendly admission assistant at Future University in Egypt for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer the question concisely in **three sentences maximum**. "
+        "Use the following pieces of retrieved context to answer questions comprehensively and professionally. "
         "Detect the language of the user’s question (English, Arabic, or Franco-Arabic, which is Arabic text mixed with Latin characters or French words) and respond in the same language. "
         "For Franco-Arabic inputs, respond in standard Arabic. "
         "If you don't know the answer, say that you don't know. "
         "The user's name is {user_name} and their selected faculty is {faculty}; personalize the response if helpful. "
+
+        "**FORMATTING REQUIREMENTS:**\n"
+        "- Provide comprehensive, detailed answers with proper structure\n"
+        "- Use paragraphs to organize different aspects of your response\n"
+        "- Use bullet points (•) for listing items, requirements, or key points\n"
+        "- Use **bold text** for important information and headings\n"
+        "- Include specific details, numbers, and examples when available\n"
+        "- Maintain a professional yet friendly tone\n"
+        "- For Arabic responses, ensure proper formatting and readability\n"
+
+        "**RESPONSE STRUCTURE:**\n"
+        "1. Start with a welcoming acknowledgment\n"
+        "2. Provide the main information in well-organized paragraphs\n"
+        "3. Use bullet points for detailed lists or requirements\n"
+        "4. End with helpful next steps or additional assistance offer\n"
 
         "Output the response in plain text with the following structure:\n"
         "- The answer text, followed by the end_token [END_RESPONSE].\n"
@@ -305,12 +320,22 @@ def run_chain_with_retry(chain, user_input, user_name, faculty, chat_history):
     print("Running chain with retry...")
     print("User Input:", user_input)
     print("Chat History:", chat_history)
-    return chain.stream({
-        "input": user_input,
-        "user_name": user_name,
-        "faculty": faculty,
-        "chat_history": chat_history
-    })
+    
+    try:
+        result = chain.stream({
+            "input": user_input,
+            "user_name": user_name,
+            "faculty": faculty,
+            "chat_history": chat_history
+        })
+        print("DEBUG: Chain stream started successfully")
+        return result
+    except Exception as e:
+        print(f"ERROR: Failed to start chain stream: {e}")
+        # Return empty generator if chain fails completely
+        def empty_generator():
+            yield "I apologize, but I'm experiencing technical difficulties. Please try again."
+        return empty_generator()
 
 
 async def send_error_message(error_msg: str, user_message : "Message", ):
@@ -425,3 +450,42 @@ def get_media_selector_llm_chain():
 
     chain = prompt | llm_media
     return chain
+
+
+def detect_arabic_text(text: str) -> bool:
+    """
+    Detect if text contains Arabic characters.
+    Returns True if Arabic characters are found.
+    """
+    import re
+    # Arabic Unicode range: U+0600-U+06FF (basic Arabic), U+0750-U+077F (Arabic Supplement)
+    # U+FB50-U+FDFF (Arabic Presentation Forms-A), U+FE70-U+FEFF (Arabic Presentation Forms-B)
+    arabic_pattern = re.compile(r'[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]')
+    return bool(arabic_pattern.search(text))
+
+
+def format_message_with_rtl(content: str) -> str:
+    """
+    Format message content with RTL support for Arabic text.
+    Wraps Arabic content in RTL div tags.
+    """
+    if not content:
+        return content
+    
+    # Check if the message contains Arabic text
+    if detect_arabic_text(content):
+        # Split content by lines to handle mixed content
+        lines = content.split('\n')
+        formatted_lines = []
+        
+        for line in lines:
+            if detect_arabic_text(line):
+                # Wrap Arabic lines with RTL direction
+                formatted_lines.append(f'<div dir="rtl" class="ar-text">{line}</div>')
+            else:
+                # Keep non-Arabic lines as LTR
+                formatted_lines.append(line)
+        
+        return '\n'.join(formatted_lines)
+    
+    return content

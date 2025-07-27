@@ -12,7 +12,7 @@ RETRIEVER_K = 3
 
 MAX_HISTORY_TOKENS = 500
 MAX_INPUT_TOKENS = 750
-MAX_OUTPUT_TOKENS = 750
+MAX_OUTPUT_TOKENS = 1500  # Increased to allow for more comprehensive responses
 
 END_TOKEN = "[END_RESPONSE]"
 

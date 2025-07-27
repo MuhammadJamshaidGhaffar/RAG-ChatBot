@@ -7,7 +7,7 @@ from langchain_core.messages.utils import count_tokens_approximately
 
 from constants import MAX_INPUT_TOKENS,END_TOKEN
 from utils import trim_chat_history, run_chain_with_retry, create_llm_chain, send_error_message, extract_variables_from_response, search_media_by_keywords
-from utils import get_media_selector_llm_chain, get_cached_llm_chain, get_cached_media_llm_chain, get_gemini_api_key_from_mongo
+from utils import get_media_selector_llm_chain, get_cached_llm_chain, get_cached_media_llm_chain, get_gemini_api_key_from_mongo, format_message_with_rtl, detect_arabic_text
 from kyc_util import handle_kyc, send_welcome_message, save_user_data_to_collection
 from vectordb_util import get_pinecone_vector_store
 from mongo_util import get_mongo_client
@@ -133,43 +133,58 @@ async def handle_message(message: cl.Message):
         print(f"DEBUG: Trimmed history content: {trimmed}")
         
         print(f"DEBUG: Starting chain execution with params - user: {user_name}, faculty: {user_faculty}")
-        found_end = False
         response_text = ""
+        
+        # Collect all tokens first, then stream the clean part
+        all_tokens = []
         for token in run_chain_with_retry(answer_chain, user_input, user_name, user_faculty, trimmed):
+            all_tokens.append(token)
             response_text += token
-
-            print(f"DEBUG: Streaming token: {token}")
-
-            if not found_end:
-                # Check if END_TOKEN appears in the accumulated response_text
-                if END_TOKEN in response_text:
-                    # Find where END_TOKEN starts in the accumulated text
-                    end_token_index = response_text.find(END_TOKEN)
-                    
-                    # Calculate how much text we should have streamed up to END_TOKEN
-                    text_before_end = response_text[:end_token_index]
-                    
-                    # Calculate how much we've already streamed (length before this token)
-                    already_streamed_length = len(response_text) - len(token)
-                    
-                    # Calculate how much of the current token to stream
-                    remaining_to_stream = len(text_before_end) - already_streamed_length
-                    
-                    if remaining_to_stream > 0:
-                        # Stream only the part before END_TOKEN
-                        token_to_stream = token[:remaining_to_stream]
-                        await msg.stream_token(token_to_stream)
-                        # Force flush with visible delay for streaming effect
-                        import asyncio
-                        await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
-                    
-                    found_end = True  # Stop streaming further tokens
-                else:
-                    # No END_TOKEN found yet, stream the entire token
-                    await msg.stream_token(token)
-                    # Force flush with visible delay for streaming effect
-                    import asyncio
-                    await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
+            print(f"DEBUG: Received token: '{token}', total response length: {len(response_text)}")
+            
+            # If we detect END_TOKEN, stop collecting
+            if END_TOKEN in response_text:
+                print(f"DEBUG: END_TOKEN detected, stopping token collection")
+                break
+        
+        # Extract the clean content (everything before END_TOKEN)
+        clean_content = response_text.split(END_TOKEN)[0] if END_TOKEN in response_text else response_text
+        
+        # Now stream the clean content token by token with proper timing
+        if clean_content.strip():
+            print(f"DEBUG: Streaming clean content: '{clean_content[:100]}...'")
+            # Stream in small chunks for better visual effect
+            chunk_size = 3  # Stream 3 characters at a time
+            for i in range(0, len(clean_content), chunk_size):
+                chunk = clean_content[i:i + chunk_size]
+                await msg.stream_token(chunk)
+                # Small delay for streaming effect
+                import asyncio
+                await asyncio.sleep(0.02)
+            print(f"DEBUG: Finished streaming {len(clean_content)} characters")
+        else:
+            print("DEBUG: No clean content to stream")
+            await msg.stream_token("I apologize, but I couldn't generate a proper response. Could you please rephrase your question?")
+        
+        print(f"DEBUG: Total response text: '{response_text[:100]}...'")
+        
+        # Apply RTL formatting to the streamed message if it contains Arabic text
+        final_text = response_text.split(END_TOKEN)[0] if END_TOKEN in response_text else response_text
+        if final_text.strip():
+            if detect_arabic_text(final_text):
+                print("DEBUG: Arabic text detected, applying RTL formatting")
+                # Note: RTL styling will be handled by CSS detecting Arabic characters
+        
+        # FINAL SAFETY CHECK: Ensure no END_TOKEN appears in the visible message
+        # This is a backup in case the streaming logic missed anything
+        current_message_content = msg.content if hasattr(msg, 'content') and msg.content else ""
+        if END_TOKEN in current_message_content:
+            print(f"WARNING: END_TOKEN found in message content, cleaning it up")
+            cleaned_content = current_message_content.split(END_TOKEN)[0]
+            # Update the message content to remove any leaked END_TOKEN
+            msg.content = cleaned_content
+            await msg.update()
+            print(f"DEBUG: Cleaned message content to: '{cleaned_content[:100]}...'")
             
 
         # extract two variables
@@ -253,7 +268,9 @@ async def handle_message(message: cl.Message):
             
             if len(extracted_image_urls) > 0 or len(extracted_video_urls) > 0:
                 print(f"DEBUG: Sending message with media elements")
-                await cl.Message(content=extracted["text"], elements=elements).send()
+                # Apply RTL formatting for Arabic text
+                formatted_text = format_message_with_rtl(extracted["text"])
+                await cl.Message(content=formatted_text, elements=elements).send()
 
         # Save interaction data based on config (retrieved once at session start)
         storage_mode = cl.user_session.get("storage_mode")

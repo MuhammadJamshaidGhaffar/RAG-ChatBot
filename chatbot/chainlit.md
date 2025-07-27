@@ -18,3 +18,9 @@ I'm here to help you navigate through university admissions, academic programs, 
 Simply start by telling me your **name** and **faculty of interest**, and I'll provide personalized assistance tailored to your needs.
 
 Let's begin your FUE journey together! 🚀
+
+<style>
+@import url('./elements/arabic-rtl.css');
+</style>
+
+<script src="./elements/arabic-rtl.js"></script>
