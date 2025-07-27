@@ -5,8 +5,69 @@ import datetime
 from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from mongo_util import get_mongo_client
-from constants import USERS_COLLECTION
+from constants import USERS_COLLECTION, END_TOKEN, REGISTER_BUTTON_URL
 from utils import get_gemini_api_key_from_mongo, send_error_message
+
+def detect_application_intent(user_message):
+    """
+    Detect if user wants to apply using Gemini LLM for multi-language support
+    Returns True if application intent is detected
+    """
+    try:
+        llm = get_llm_instance()
+        if not llm:
+            print("DEBUG: Failed to get LLM instance for intent detection, using fallback")
+            return check_application_intent(user_message)
+        
+        intent_prompt = f"""You are an intent detection system for a university chatbot. 
+
+Analyze this user message and determine if the user EXPLICITLY WANTS TO APPLY or START AN APPLICATION, not just asking about procedures.
+
+User message: "{user_message}"
+
+Respond with ONLY "YES" if the user CLEARLY EXPRESSES DESIRE TO:
+- "I want to apply"
+- "I want to register" 
+- "I want to enroll"
+- "I want to join the university"
+- "I want to start my application"
+- "I would like to apply"
+- "Can I apply now?"
+- "Help me apply"
+- "Start my application"
+
+Respond with ONLY "NO" if the user is:
+- Just asking about application procedures ("How do I apply?", "What are the requirements?")
+- Asking general questions about admission process
+- Asking about courses/programs 
+- Making casual conversation
+- Asking for information WITHOUT expressing clear desire to apply NOW
+
+The user must express CLEAR INTENT TO APPLY NOW, not just curiosity about the process.
+
+Response (YES or NO):"""
+
+        response = llm.invoke(intent_prompt)
+        result = response.content.strip().upper()
+        
+        is_application_intent = result == "YES"
+        print(f"DEBUG: Gemini intent detection result: {result} -> {is_application_intent}")
+        return is_application_intent
+        
+    except Exception as error:
+        print(f"DEBUG: Error in Gemini intent detection: {error}, using fallback")
+        return check_application_intent(user_message)
+
+def check_application_intent(user_message):
+    """Fallback intent detection using keyword matching - only for explicit application requests"""
+    intent_keywords = [
+        "yes", "sure", "okay", "ok", "i want to apply", "start my application", 
+        "begin application", "let's start", "let's apply", "نعم", "أريد التقديم",
+        "أريد التسجيل", "موافق", "حسنا", "sí", "oui", "да"
+    ]
+    
+    message_lower = user_message.lower()
+    return any(keyword in message_lower for keyword in intent_keywords)
 
 FACULTIES = [
     "oral and dental",
@@ -25,6 +86,53 @@ def is_valid_mobile(mobile):
 
 def is_valid_faculty(faculty):
     return faculty.lower() in [f.lower() for f in FACULTIES]
+
+def get_llm_instance():
+    """Get basic LLM instance for text generation (not JSON)"""
+    try:
+        api_key = get_gemini_api_key_from_mongo()
+        if not api_key:
+            return None
+        
+        return ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash", 
+            google_api_key=api_key
+        )
+    except Exception as error:
+        print(f"DEBUG: Error creating LLM instance: {error}")
+        return None
+
+def get_kyc_welcome_chain():
+    """Get LLM chain for generating dynamic KYC welcome messages"""
+    try:
+        llm = get_llm_instance()
+        if not llm:
+            return None
+        
+        welcome_prompt = PromptTemplate.from_template("""
+You are an admission assistant for Future University in Egypt (FUE). The user has just expressed interest in starting their application process.
+
+Detect the language of the user's message and respond in the same language (English, Arabic, Franco-Arabic, Spanish, French, etc.).
+For Franco-Arabic inputs, respond in standard Arabic.
+
+Generate a warm, welcoming message that:
+1. Thanks them for their interest in applying to FUE
+2. Explains you'll need to collect some information
+3. Lists the required information clearly
+4. Lists the available faculties
+5. Encourages them to provide the information
+
+User's message: "{user_message}"
+Available faculties: {faculties}
+
+Make the message friendly, professional, and encouraging. Use appropriate emojis.
+""")
+        
+        return welcome_prompt | llm
+        
+    except Exception as e:
+        print(f"ERROR: Failed to create KYC welcome chain: {e}")
+        return None
 
 def get_kyc_llm():
     """Get LLM instance with dynamic API key for KYC operations"""
@@ -45,8 +153,7 @@ def get_message_llm():
         raise ValueError("Gemini API key not available for message generation")
     
     return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash", 
-        response_mime_type="application/json",
+        model="gemini-2.5-flash",
         google_api_key=api_key
     )
 
@@ -100,19 +207,23 @@ User's previous message: {user_message}
 
 Available faculties: {faculties}
 
-Generate a JSON response with appropriate message text:
+Generate a response with the following format:
 
 If KYC is complete (no missing fields, no errors):
-{{
-  "message_type": "completion",
-  "text": "Welcome message confirming completion and readiness to help with university questions"
-}}
+- Provide a congratulatory welcome message confirming completion
+- Thank the user for providing their information
+- Mention they can now ask questions about university admissions
+- End with: {END_TOKEN}
+- Then add: COMPLETION_STATUS=true
+- Then add: SHOW_REGISTER_BUTTON=true
 
 If there are missing fields or validation errors:
-{{
-  "message_type": "guidance", 
-  "text": "Helpful message guiding user to provide missing/correct information"
-}}
+- Provide helpful guidance on what information is still needed
+- Be specific about validation errors if any
+- Encourage the user to provide the missing information
+- End with: {END_TOKEN}
+- Then add: COMPLETION_STATUS=false
+- Then add: SHOW_REGISTER_BUTTON=false
 
 Make the messages friendly, professional, and specific to the issues found. Use emojis appropriately.
 """)
@@ -126,6 +237,29 @@ def get_message_chain():
         print(f"ERROR: Failed to create message chain: {e}")
         return None
 
+def extract_kyc_variables_from_response(response_text):
+    """Extract completion status and button visibility from KYC response"""
+    completion_status = False
+    show_register_button = False
+    
+    try:
+        # Look for completion status
+        if "COMPLETION_STATUS=true" in response_text:
+            completion_status = True
+        elif "COMPLETION_STATUS=false" in response_text:
+            completion_status = False
+            
+        # Look for register button visibility
+        if "SHOW_REGISTER_BUTTON=true" in response_text:
+            show_register_button = True
+        elif "SHOW_REGISTER_BUTTON=false" in response_text:
+            show_register_button = False
+            
+    except Exception as e:
+        print(f"DEBUG: Error extracting KYC variables: {e}")
+    
+    return completion_status, show_register_button
+
 async def send_welcome_message():
     cl.user_session.set("kyc", {})
     faculty_list = "\n- " + "\n- ".join(FACULTIES)
@@ -134,29 +268,39 @@ async def send_welcome_message():
     welcome = f"""
 🎓 **Welcome to Ask Nour - Your FUE Knowledge Companion!**
 
-I'm here to assist you with all your **Future University in Egypt (FUE)** inquiries. Before we begin exploring the exciting opportunities at FUE, please provide the following details:
+I'm here to assist you with all your **Future University in Egypt (FUE)** inquiries! 
 
-**📝 Required Information:**
-- ✅ **Full Name**
-- ✉️ **Email Address** 
-- 📱 **Mobile Number**
-- 🏛️ **Faculty of Interest**
+**💬 What can I help you with today?**
+- Learn about our faculties and programs
+- Get admission requirements and procedures  
+- Explore campus life and facilities
+- **Apply for admission** (I'll guide you through the process!)
 
 **🎯 Available FUE Faculties:**{faculty_list}
 
-You can enter all details at once or provide them one by one. Let's get started on your FUE journey! 🚀
+Feel free to ask any questions about FUE, or if you're ready to apply, just let me know! 🚀
+
+**Ready to apply?** Use the button below to start your application:
 """
     
     # Create image element for the logo
     logo_image = cl.Image(path="./public/fue-red-logo.jpg", name="FUE Logo", display="inline")
     
-    # Send logo
-    # await cl.Message(content="",elements=[logo_image]).send()
-
-    # send Message
+    # Create register button element
+    register_button = cl.CustomElement(
+        name="RegisterButton", 
+        props={
+            "url": REGISTER_BUTTON_URL,
+            "text": "🎓 Start My Application",
+            "description": "Begin your journey at Future University in Egypt"
+        }, 
+        display="inline"
+    )
+    
+    # Send Message with logo and register button
     await cl.Message(
         content=welcome,
-        elements=[logo_image]
+        elements=[logo_image, register_button]
     ).send()
 
 
@@ -197,6 +341,54 @@ async def handle_kyc(message: cl.Message):
     print(f"DEBUG: Current KYC state: {kyc}")
     print(f"DEBUG: User message: {message.content}")
 
+    # Check if KYC process has started
+    kyc_started = cl.user_session.get("kyc_started", False)
+    
+    # If KYC hasn't started, check for application intent
+    if not kyc_started:
+        if detect_application_intent(message.content):
+            print("DEBUG: Application intent detected, starting KYC process")
+            cl.user_session.set("kyc_started", True)
+            
+            # Generate dynamic KYC welcome message
+            try:
+                welcome_chain = get_kyc_welcome_chain()
+                if welcome_chain:
+                    # Create streaming message for welcome
+                    welcome_msg = cl.Message(content="")
+                    await welcome_msg.send()
+                    
+                    welcome_stream = welcome_chain.stream({
+                        "user_message": message.content,
+                        "faculties": FACULTIES
+                    })
+                    
+                    for chunk in welcome_stream:
+                        if hasattr(chunk, 'content'):
+                            token = chunk.content
+                            await welcome_msg.stream_token(token)
+                    
+                    await welcome_msg.update()
+                else:
+                    # Fallback to simple message
+                    welcome_msg = "Great! I'll help you with your application. Please provide your name, email, mobile number, and faculty of interest."
+                    await cl.Message(content=welcome_msg).send()
+                return False
+                
+            except Exception as e:
+                print(f"DEBUG: Error generating dynamic welcome: {e}")
+                # Fallback message
+                welcome_msg = "Great! I'll help you with your application. Please provide your name, email, mobile number, and faculty of interest."
+                await cl.Message(content=welcome_msg).send()
+                return False
+        else:
+            # Not an application intent, let main chatbot handle it
+            print("DEBUG: No application intent detected, letting main chatbot handle")
+            return None  # Signal to main.py that this isn't a KYC interaction
+    
+    # KYC process is active, continue with data collection
+    print("DEBUG: KYC process active, collecting user information...")
+
     # Get KYC chain with dynamic API key
     kyc_chain = get_kyc_chain()
     if not kyc_chain:
@@ -219,7 +411,7 @@ async def handle_kyc(message: cl.Message):
     except Exception as error:
         print(f"DEBUG: Error parsing LLM response: {error}")
         await send_error_message("⚠️ Sorry, I couldn't understand your message. Please try again.", message)
-        return
+        return False
 
     # Update non-null values
     for key in ["name", "email", "mobile", "faculty"]:
@@ -259,15 +451,29 @@ async def handle_kyc(message: cl.Message):
     print(f"DEBUG: Missing fields: {missing}")
     print(f"DEBUG: Final KYC state: {kyc}")
 
-    # Generate dynamic response message
+    # Generate dynamic response message with streaming
     try:
         message_chain = get_message_chain()
         if not message_chain:
             print("DEBUG: Failed to create message chain, using fallback")
             # Fallback to simple status message
             if not missing and not validation_errors:
+                completion_msg = f"✅ Great, {kyc.get('name', 'there')}! Your information is complete. You can now ask questions about university admissions."
+                
+                # Create register button
+                register_button = cl.CustomElement(
+                    name="RegisterButton", 
+                    props={
+                        "url": REGISTER_BUTTON_URL,
+                        "text": "📝 Complete My Registration",
+                        "description": "Open the application portal to finish your registration"
+                    }, 
+                    display="inline"
+                )
+                
                 await cl.Message(
-                    content=f"✅ Great, {kyc.get('name', 'there')}! Your information is complete. You can now ask questions about university admissions."
+                    content=completion_msg,
+                    elements=[register_button]
                 ).send()
                 return True
             else:
@@ -277,30 +483,139 @@ async def handle_kyc(message: cl.Message):
                 await cl.Message(content=fallback_msg).send()
                 return False
         
-        message_response = message_chain.invoke({
-            "kyc_state": str(kyc),
-            "missing_fields": missing,
-            "validation_errors": validation_errors,
-            "user_message": message.content,
-            "faculties": FACULTIES
-        })
+        # Create streaming message
+        msg = cl.Message(content="")
         
-        message_data = json.loads(message_response.content)
-        print(f"DEBUG: Generated message: {message_data}")
-        
-        # Send the dynamic message
-        if message_data.get("text"):
-            await cl.Message(content=message_data["text"]).send()
+        # Stream the response
+        print("DEBUG: Starting streaming response for KYC message")
+        try:
+            response_stream = message_chain.stream({
+                "kyc_state": str(kyc),
+                "missing_fields": missing,
+                "validation_errors": validation_errors,
+                "user_message": message.content,
+                "faculties": FACULTIES,
+                "END_TOKEN": END_TOKEN
+            })
             
-        # Return completion status
-        return message_data.get("message_type") == "completion"
+            response_text = ""
+            found_end = False
+            
+            for chunk in response_stream:
+                if hasattr(chunk, 'content'):
+                    token = chunk.content
+                    response_text += token
+                    
+                    print(f"DEBUG: Streaming KYC token: {token}")
+                    
+                    if not found_end:
+                        # Check if END_TOKEN appears in the accumulated response_text
+                        if END_TOKEN in response_text:
+                            # Find where END_TOKEN starts in the accumulated text
+                            end_token_index = response_text.find(END_TOKEN)
+                            
+                            # Calculate how much text we should have streamed up to END_TOKEN
+                            text_before_end = response_text[:end_token_index]
+                            
+                            # Calculate how much we've already streamed (length before this token)
+                            already_streamed_length = len(response_text) - len(token)
+                            
+                            # Calculate how much of the current token to stream
+                            remaining_to_stream = len(text_before_end) - already_streamed_length
+                            
+                            if remaining_to_stream > 0:
+                                # Stream only the part before END_TOKEN
+                                token_to_stream = token[:remaining_to_stream]
+                                await msg.stream_token(token_to_stream)
+                            
+                            found_end = True  # Stop streaming further tokens
+                        else:
+                            # No END_TOKEN found yet, stream the entire token
+                            await msg.stream_token(token)
+            
+            # Extract variables from response
+            completion_status, show_register_button = extract_kyc_variables_from_response(response_text)
+            
+            print(f"DEBUG: KYC completion_status={completion_status}, show_register_button={show_register_button}")
+            
+            # Add register button if needed
+            if show_register_button and completion_status:
+                register_button = cl.CustomElement(
+                    name="RegisterButton", 
+                    props={
+                        "url": REGISTER_BUTTON_URL,
+                        "text": "📝 Complete My Registration",
+                        "description": "Open the application portal to finish your registration"
+                    }, 
+                    display="inline"
+                )
+                # Update message with button
+                msg.elements.append(register_button)
+                await msg.update()
+            else:
+                await msg.update()
+            
+            return completion_status
+            
+        except Exception as stream_error:
+            print(f"DEBUG: Error during streaming: {stream_error}")
+            # Fallback to regular invoke
+            message_response = message_chain.invoke({
+                "kyc_state": str(kyc),
+                "missing_fields": missing,
+                "validation_errors": validation_errors,
+                "user_message": message.content,
+                "faculties": FACULTIES,
+                "END_TOKEN": END_TOKEN
+            })
+            
+            response_text = message_response.content if hasattr(message_response, 'content') else str(message_response)
+            
+            # Extract the main message (before END_TOKEN)
+            main_message = response_text.split(END_TOKEN)[0] if END_TOKEN in response_text else response_text
+            
+            # Extract variables
+            completion_status, show_register_button = extract_kyc_variables_from_response(response_text)
+            
+            # Send message with or without button
+            if show_register_button and completion_status:
+                register_button = cl.CustomElement(
+                    name="RegisterButton", 
+                    props={
+                        "url": REGISTER_BUTTON_URL,
+                        "text": "📝 Complete My Registration",
+                        "description": "Open the application portal to finish your registration"
+                    }, 
+                    display="inline"
+                )
+                msg.content = main_message
+                msg.elements.append(register_button)
+                await msg.update()
+            else:
+                msg.content = main_message
+                await msg.update()
+            
+            return completion_status
         
     except Exception as error:
         print(f"DEBUG: Error generating dynamic message: {error}")
         # Fallback to simple status message
         if not missing and not validation_errors:
+            completion_msg = f"✅ Great, {kyc.get('name', 'there')}! Your information is complete. You can now ask questions about university admissions."
+            
+            register_button = cl.CustomElement(
+                name="RegisterButton", 
+                props={
+                    "url": REGISTER_BUTTON_URL,
+                    "text": "📝 Complete My Registration",
+                    "description": "Open the application portal to finish your registration"
+                }, 
+                display="inline"
+            )
+            
             await cl.Message(
-                content=f"✅ Great, {kyc.get('name', 'there')}! Your information is complete. You can now ask questions about university admissions."
+                content=completion_msg,
+                elements=[register_button]
             ).send()
             return True
         else:

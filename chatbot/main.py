@@ -54,39 +54,46 @@ async def handle_message(message: cl.Message):
     print(f"DEBUG: Current KYC data: {cl.user_session.get('kyc', {})}")
     print(f"DEBUG: Chat history when handle_message started: {cl.chat_context.to_openai()}")
 
-    if not cl.user_session.get("is_kyc_complete", False):
-        print("DEBUG: KYC not complete, handling KYC process...")
-        is_kyc_complete = await handle_kyc(message)
-        print(f"DEBUG: KYC handling result: {is_kyc_complete}")
-
-        if is_kyc_complete:
-            cl.user_session.set("is_kyc_complete", True)
-            print("DEBUG: KYC marked as complete in session")
-
-            kyc = cl.user_session.get("kyc")
-            print(f"DEBUG: Final KYC data: {kyc}")
-            
-            # Save user data to USERS_COLLECTION
-            print("DEBUG: Saving user data to USERS_COLLECTION...")
-            save_success = save_user_data_to_collection(kyc)
-            if save_success:
-                print("DEBUG: User data saved successfully")
-            else:
-                print("DEBUG: Failed to save user data")
-
-            # clear all context history
-            print("DEBUG: Clearing chat context after KYC completion")
-            cl.chat_context.clear()
-            print("DEBUG: Chat context cleared")
+    # Check if user wants to apply or if KYC is in progress
+    kyc_result = await handle_kyc(message)
+    print(f"DEBUG: KYC handling result: {kyc_result}")
+    
+    # If kyc_result is None, it means no application intent and no active KYC - proceed with normal chat
+    # If kyc_result is False, it means KYC is in progress but not complete - return
+    # If kyc_result is True, it means KYC is complete - continue with normal chat
+    
+    if kyc_result is None:
+        print("DEBUG: No KYC interaction, proceeding with normal chat")
+        # Normal chat flow - no KYC interaction
+    elif kyc_result is False:
+        print("DEBUG: KYC in progress but not complete, returning")
+        return  # KYC is in progress but not complete
+    elif kyc_result is True:
+        print("DEBUG: KYC completed, proceeding with normal chat after completion")
+        cl.user_session.set("is_kyc_complete", True)
+        
+        kyc = cl.user_session.get("kyc")
+        print(f"DEBUG: Final KYC data: {kyc}")
+        
+        # Save user data to USERS_COLLECTION
+        print("DEBUG: Saving user data to USERS_COLLECTION...")
+        save_success = save_user_data_to_collection(kyc)
+        if save_success:
+            print("DEBUG: User data saved successfully")
         else:
-            print("DEBUG: KYC still incomplete, returning without processing question")
-        return    
+            print("DEBUG: Failed to save user data")
 
-    kyc = cl.user_session.get("kyc")
+        return  # Don't process the message that completed KYC as a regular question
+
+    # Normal chat processing for all users (KYC complete or no KYC needed)
+    kyc = cl.user_session.get("kyc", {})
     user_input = message.content
-    print(f"DEBUG: Processing question from user: {kyc.get('name', 'Unknown')}")
+    user_name = kyc.get('name', 'Unknown') if kyc else 'Unknown'
+    user_faculty = kyc.get('faculty', 'Unknown') if kyc else 'Unknown'
+    
+    print(f"DEBUG: Processing question from user: {user_name}")
     print(f"DEBUG: User input: '{user_input}'")
-    print(f"DEBUG: User faculty: {kyc.get('faculty', 'Unknown')}")
+    print(f"DEBUG: User faculty: {user_faculty}")
 
     # Check if input exceeds token limit
     token_count = count_tokens_approximately([HumanMessage(user_input)])
@@ -121,21 +128,38 @@ async def handle_message(message: cl.Message):
         print(f"DEBUG: Trimmed chat history: {len(trimmed)} messages")
         print(f"DEBUG: Trimmed history content: {trimmed}")
         
-        print(f"DEBUG: Starting chain execution with params - user: {kyc.get('name', 'Unknown')}, faculty: {kyc.get('faculty', "Unknown")}")
+        print(f"DEBUG: Starting chain execution with params - user: {user_name}, faculty: {user_faculty}")
         found_end = False
         response_text = ""
-        for token in run_chain_with_retry(answer_chain, user_input, kyc.get('name', "Unknown"), kyc.get("faculty", "Unknown"),  trimmed):
+        for token in run_chain_with_retry(answer_chain, user_input, user_name, user_faculty, trimmed):
             response_text += token
 
             print(f"DEBUG: Streaming token: {token}")
 
             if not found_end:
-                # Stream the token to the message
-                await msg.stream_token(token.split(END_TOKEN)[0])  # Stream only up to the END_TOKEN if it exists
-
-            # Check if [END_RESPONSE] just appeared in the response
-            if END_TOKEN in response_text and not found_end:
-                found_end = True  # Stop streaming further tokens
+                # Check if END_TOKEN appears in the accumulated response_text
+                if END_TOKEN in response_text:
+                    # Find where END_TOKEN starts in the accumulated text
+                    end_token_index = response_text.find(END_TOKEN)
+                    
+                    # Calculate how much text we should have streamed up to END_TOKEN
+                    text_before_end = response_text[:end_token_index]
+                    
+                    # Calculate how much we've already streamed (length before this token)
+                    already_streamed_length = len(response_text) - len(token)
+                    
+                    # Calculate how much of the current token to stream
+                    remaining_to_stream = len(text_before_end) - already_streamed_length
+                    
+                    if remaining_to_stream > 0:
+                        # Stream only the part before END_TOKEN
+                        token_to_stream = token[:remaining_to_stream]
+                        await msg.stream_token(token_to_stream)
+                    
+                    found_end = True  # Stop streaming further tokens
+                else:
+                    # No END_TOKEN found yet, stream the entire token
+                    await msg.stream_token(token)
             
 
         # extract two variables
@@ -156,6 +180,7 @@ async def handle_message(message: cl.Message):
                 }
             extracted_image_urls = []
             extracted_video_urls = []
+        
 
             if len(images) > 3 or len(videos) > 3:
                 
@@ -215,7 +240,10 @@ async def handle_message(message: cl.Message):
                     else:
                         print(f"DEBUG: Unknown video URL format: {video_url}, skipping")
 
-            await cl.Message(content=extracted["text"], elements=elements).send()
+            
+            if len(extracted_image_urls) > 0 or len(extracted_video_urls) > 0:
+                print(f"DEBUG: Sending message with media elements")
+                await cl.Message(content=extracted["text"], elements=elements).send()
 
         # Save interaction data based on config (retrieved once at session start)
         storage_mode = cl.user_session.get("storage_mode")

@@ -26,4 +26,6 @@ CONFIG_COLLECTION = "config"
 CHAT_HISTORY_COLLECTION = "chat_history"
 QUESTIONS_COLLECTION = "questions"
 
+REGISTER_BUTTON_URL = "https://services.fue.edu.eg/applyonline2025/"
+
 
