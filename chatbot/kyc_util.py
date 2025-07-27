@@ -115,17 +115,14 @@ You are an admission assistant for Future University in Egypt (FUE). The user ha
 Detect the language of the user's message and respond in the same language (English, Arabic, Franco-Arabic, Spanish, French, etc.).
 For Franco-Arabic inputs, respond in standard Arabic.
 
-Generate a warm, welcoming message that:
+Generate a brief, warm welcome message that:
 1. Thanks them for their interest in applying to FUE
-2. Explains you'll need to collect some information
-3. Lists the required information clearly
-4. Lists the available faculties
-5. Encourages them to provide the information
+2. Mentions you need to collect basic information: name, email, mobile, and faculty preference
+3. Encourages them to share this information
 
 User's message: "{user_message}"
-Available faculties: {faculties}
 
-Make the message friendly, professional, and encouraging. Use appropriate emojis.
+Keep the message concise, friendly, and professional. Use appropriate emojis but don't list all faculties - just mention "faculty of interest".
 """)
         
         return welcome_prompt | llm
@@ -359,14 +356,16 @@ async def handle_kyc(message: cl.Message):
                     await welcome_msg.send()
                     
                     welcome_stream = welcome_chain.stream({
-                        "user_message": message.content,
-                        "faculties": FACULTIES
+                        "user_message": message.content
                     })
                     
                     for chunk in welcome_stream:
                         if hasattr(chunk, 'content'):
                             token = chunk.content
                             await welcome_msg.stream_token(token)
+                            # Force flush with visible delay for streaming effect
+                            import asyncio
+                            await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
                     
                     await welcome_msg.update()
                 else:
@@ -527,11 +526,17 @@ async def handle_kyc(message: cl.Message):
                                 # Stream only the part before END_TOKEN
                                 token_to_stream = token[:remaining_to_stream]
                                 await msg.stream_token(token_to_stream)
+                                # Force flush with visible delay for streaming effect
+                                import asyncio
+                                await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
                             
                             found_end = True  # Stop streaming further tokens
                         else:
                             # No END_TOKEN found yet, stream the entire token
                             await msg.stream_token(token)
+                            # Force flush with visible delay for streaming effect
+                            import asyncio
+                            await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
             
             # Extract variables from response
             completion_status, show_register_button = extract_kyc_variables_from_response(response_text)

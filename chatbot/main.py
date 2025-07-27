@@ -1,6 +1,7 @@
 import chainlit as cl
 import os
 import json
+import asyncio
 from langchain_core.messages import  HumanMessage
 from langchain_core.messages.utils import count_tokens_approximately
 
@@ -29,11 +30,14 @@ except Exception as e:
 
 mongo_db = get_mongo_client()
 
-# Note: LLM chains will be created on-demand using cached versions
 
 @cl.on_chat_start
 async def on_chat_start():
     print("DEBUG: Chat session started")
+    
+    # UNCOMMENT THIS LINE TO TEST STREAMING IN PRODUCTION:
+    # await test_streaming_debug()
+    
     print("DEBUG: Sending welcome message...")
     await send_welcome_message()
 
@@ -155,11 +159,17 @@ async def handle_message(message: cl.Message):
                         # Stream only the part before END_TOKEN
                         token_to_stream = token[:remaining_to_stream]
                         await msg.stream_token(token_to_stream)
+                        # Force flush with visible delay for streaming effect
+                        import asyncio
+                        await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
                     
                     found_end = True  # Stop streaming further tokens
                 else:
                     # No END_TOKEN found yet, stream the entire token
                     await msg.stream_token(token)
+                    # Force flush with visible delay for streaming effect
+                    import asyncio
+                    await asyncio.sleep(0.1)  # Increased from 0.01 to 0.05
             
 
         # extract two variables
