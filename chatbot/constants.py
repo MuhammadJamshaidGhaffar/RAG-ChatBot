@@ -1,18 +1,16 @@
 # constants.py
 
-# FAISS index path
-FAISS_PATH = "faiss_index"
+# Text splitting - Optimized for admission assistance content
+CHUNK_SIZE = 1500  # Increased for better context retention in educational content
+CHUNK_OVERLAP = 200  # Increased overlap to maintain context across chunks
 
-# Text splitting
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 100
+# Retriever - Increased for comprehensive admission information
+RETRIEVER_K = 5  # Retrieve more chunks for thorough admission answers
 
-# Retriever
-RETRIEVER_K = 3
+MAX_HISTORY_TOKENS = 2000  # Increased to maintain longer conversation context
+MAX_INPUT_TOKENS = 750  # Increased to allow longer questions
+MAX_OUTPUT_TOKENS = 1500  # Increased for comprehensive responses
 
-MAX_HISTORY_TOKENS = 500
-MAX_INPUT_TOKENS = 750
-MAX_OUTPUT_TOKENS = 1500  # Increased to allow for more comprehensive responses
 
 END_TOKEN = "[END_RESPONSE]"
 
@@ -26,6 +24,7 @@ CONFIG_COLLECTION = "config"
 CHAT_HISTORY_COLLECTION = "chat_history"
 QUESTIONS_COLLECTION = "questions"
 
-REGISTER_BUTTON_URL = "https://services.fue.edu.eg/applyonline2025/"
+# REGISTER_BUTTON_URL = "https://services.fue.edu.eg/applyonline2025/"
+REGISTER_BUTTON_URL = "https://bit.ly/fue_asknour"
 
 

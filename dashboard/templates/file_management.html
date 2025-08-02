@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>File Management - Ask Nour Dashboard</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico" />
+
+    <!-- Bootstrap 5 CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Bootstrap Icons -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+
+    <!-- FUE Brand CSS -->
+    <link href="/static/css/fue-brand.css" rel="stylesheet" />
+
+    <style>
+      body {
+        background: linear-gradient(
+          135deg,
+          var(--fue-light-gray) 0%,
+          var(--fue-white) 100%
+        );
+        color: var(--fue-dark-gray);
+        font-family: var(--fue-font-primary);
+        min-height: 100vh;
+      }
+
+      .file-container {
+        background: var(--fue-white);
+        border: 1px solid rgba(174, 15, 10, 0.1);
+        border-radius: var(--fue-radius-xl);
+        padding: 2rem;
+        margin: 2rem auto;
+        max-width: 1000px;
+        box-shadow: var(--fue-shadow-xl);
+      }
+
+      .file-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--fue-burgundy);
+      }
+
+      .page-title {
+        color: var(--fue-burgundy);
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+
+      .file-item {
+        background: var(--fue-white);
+        border: 1px solid rgba(174, 15, 10, 0.1);
+        border-radius: var(--fue-radius-lg);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+      }
+
+      .file-item:hover {
+        box-shadow: var(--fue-shadow-lg);
+        border-color: var(--fue-burgundy);
+      }
+
+      .file-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--fue-burgundy);
+        margin-bottom: 0.5rem;
+      }
+
+      .file-meta {
+        color: var(--fue-gray);
+        font-size: 0.9rem;
+      }
+
+      .btn-delete {
+        background: linear-gradient(45deg, #dc3545, #c82333);
+        border: none;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: var(--fue-radius-md);
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .btn-delete:hover {
+        background: linear-gradient(45deg, #c82333, #a71e2a);
+        transform: translateY(-1px);
+        color: white;
+      }
+
+      .btn-delete:disabled {
+        background: #6c757d !important;
+        border-color: #6c757d !important;
+        color: white !important;
+        transform: none !important;
+        cursor: not-allowed !important;
+        opacity: 0.7;
+      }
+
+      .navbar {
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        margin-bottom: 2rem;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--fue-gray);
+      }
+
+      .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: var(--fue-burgundy);
+        opacity: 0.5;
+      }
+
+      .loading-spinner {
+        text-align: center;
+        padding: 2rem;
+      }
+
+      .feature-icon {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(
+          45deg,
+          var(--fue-burgundy),
+          var(--fue-burgundy-hover)
+        );
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 2rem;
+        color: white;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg">
+      <div class="container-fluid">
+        <span class="navbar-brand">
+          <div class="brand-container">
+            <img
+              src="/static/images/fue-logo.svg"
+              alt="FUE Logo"
+              class="brand-logo"
+            />
+            <div class="brand-text">
+              <div class="brand-title">Ask Nour</div>
+              <div class="brand-subtitle">File Management</div>
+            </div>
+          </div>
+        </span>
+
+        <div class="navbar-nav ms-auto">
+          <a class="nav-link btn btn-outline-primary me-2" href="/">
+            <i class="bi bi-house"></i> Home
+          </a>
+          <a class="nav-link btn btn-outline-primary me-2" href="/dashboard">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+          <a class="nav-link btn btn-outline-primary me-2" href="/upload-page">
+            <i class="bi bi-cloud-upload"></i> Upload
+          </a>
+          <a class="nav-link btn btn-outline-danger" href="/logout">
+            <i class="bi bi-box-arrow-right"></i> Logout
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="file-container">
+      <!-- File Management Header -->
+      <div class="file-header">
+        <div class="feature-icon">
+          <i class="bi bi-files"></i>
+        </div>
+        <h1 class="page-title">Knowledge Base Files</h1>
+        <p class="text-muted">
+          Manage uploaded documents in the Ask Nour knowledge base
+        </p>
+      </div>
+
+      <!-- Files List -->
+      <div id="filesContainer">
+        <div class="loading-spinner">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading files...</p>
+        </div>
+      </div>
+
+      <!-- Message Area -->
+      <div id="messageArea"></div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div
+      class="modal fade"
+      id="deleteModal"
+      tabindex="-1"
+      aria-labelledby="deleteModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <p>
+              Are you sure you want to delete this file from the knowledge base?
+            </p>
+            <p><strong id="fileToDelete"></strong></p>
+            <p class="text-warning">
+              <i class="bi bi-exclamation-triangle"></i>
+              This action cannot be undone. All associated vectors will be
+              removed from the database.
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Cancel
+            </button>
+            <button type="button" class="btn btn-danger" id="confirmDelete">
+              Delete File
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      let currentFileToDelete = null;
+
+      // Load files when page loads
+      document.addEventListener("DOMContentLoaded", function () {
+        loadFiles();
+        setupEventListeners();
+      });
+
+      // Setup event listeners
+      function setupEventListeners() {
+        // Handle delete confirmation - only add listener once
+        if (!deleteConfirmListenerAdded) {
+          document
+            .getElementById("confirmDelete")
+            .addEventListener("click", async function () {
+              if (!currentFileToDelete) return;
+
+              // Disable all delete buttons and show loading state
+              const deleteButtons = document.querySelectorAll(".btn-delete");
+              deleteButtons.forEach((btn) => {
+                btn.disabled = true;
+                btn.innerHTML =
+                  '<i class="bi bi-hourglass-split"></i> Deleting...';
+              });
+
+              // Disable the confirm button
+              const confirmBtn = document.getElementById("confirmDelete");
+              const originalConfirmText = confirmBtn.innerHTML;
+              confirmBtn.disabled = true;
+              confirmBtn.innerHTML =
+                '<i class="bi bi-hourglass-split"></i> Deleting...';
+
+              try {
+                const response = await fetch(
+                  `/api/files/${encodeURIComponent(currentFileToDelete)}`,
+                  {
+                    method: "DELETE",
+                  }
+                );
+
+                const result = await response.json();
+
+                if (result.success) {
+                  showSuccess(result.message);
+
+                  // Close modal properly
+                  const modalElement = document.getElementById("deleteModal");
+                  const modal = bootstrap.Modal.getInstance(modalElement);
+                  if (modal) {
+                    modal.hide();
+                  }
+
+                  // Reset state
+                  currentFileToDelete = null;
+                  confirmBtn.disabled = false;
+                  confirmBtn.innerHTML = originalConfirmText;
+
+                  // Reload files after a short delay to ensure modal is closed
+                  setTimeout(() => {
+                    loadFiles();
+                  }, 300);
+                } else {
+                  showError("Failed to delete file: " + result.message);
+                  // Re-enable buttons on error
+                  enableDeleteButtons();
+                  // Reset confirm button
+                  confirmBtn.disabled = false;
+                  confirmBtn.innerHTML = originalConfirmText;
+                }
+              } catch (error) {
+                showError("Network error: " + error.message);
+                // Re-enable buttons on error
+                enableDeleteButtons();
+                // Reset confirm button
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = originalConfirmText;
+              }
+            });
+
+          // Add modal event listeners to handle state reset
+          document
+            .getElementById("deleteModal")
+            .addEventListener("hidden.bs.modal", function () {
+              // Reset state when modal is hidden
+              currentFileToDelete = null;
+              const confirmBtn = document.getElementById("confirmDelete");
+              confirmBtn.disabled = false;
+              confirmBtn.innerHTML = "Delete File";
+              enableDeleteButtons();
+            });
+
+          deleteConfirmListenerAdded = true;
+        }
+      }
+
+      // Load files from API
+      async function loadFiles() {
+        try {
+          const response = await fetch("/api/files");
+          const data = await response.json();
+
+          if (data.success) {
+            displayFiles(data.files);
+          } else {
+            showError("Failed to load files: " + data.message);
+          }
+        } catch (error) {
+          showError("Network error: " + error.message);
+        }
+      }
+
+      // Display files in the container
+      function displayFiles(files) {
+        const container = document.getElementById("filesContainer");
+
+        if (files.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <i class="bi bi-file-earmark-x"></i>
+              <h4>No Files Found</h4>
+              <p>No documents have been uploaded to the knowledge base yet.</p>
+              <a href="/upload-page" class="btn btn-primary">
+                <i class="bi bi-cloud-upload"></i> Upload Your First Document
+              </a>
+            </div>
+          `;
+          return;
+        }
+
+        let html = "";
+        files.forEach((file) => {
+          const uploadDate = new Date(file.upload_time).toLocaleString();
+          const fileType = file.file_type || "document";
+
+          // Determine icon and description based on file type
+          let icon = "bi-file-earmark-text";
+          let typeDescription = "Document";
+          let deleteWarning =
+            "This will remove all associated vectors from the knowledge base.";
+
+          if (fileType === "images_csv") {
+            icon = "bi-images";
+            typeDescription = "Images CSV";
+            deleteWarning =
+              "This will remove all image records from the images collection.";
+          } else if (fileType === "videos_csv") {
+            icon = "bi-camera-video";
+            typeDescription = "Videos CSV";
+            deleteWarning =
+              "This will remove all video records from the videos collection.";
+          }
+
+          html += `
+            <div class="file-item">
+              <div class="row align-items-center">
+                <div class="col-md-8">
+                  <div class="file-name">
+                    <i class="${icon} me-2"></i>
+                    ${escapeHtml(file.filename)}
+                  </div>
+                  <div class="file-meta">
+                    <i class="bi bi-calendar me-1"></i>
+                    Uploaded: ${uploadDate}
+                    <span class="ms-3">
+                      <i class="bi bi-info-circle me-1"></i>
+                      Type: ${typeDescription}
+                    </span>
+                  </div>
+                </div>
+                <div class="col-md-4 text-end">
+                  <button class="btn btn-delete" data-filename="${escapeHtml(
+                    file.filename
+                  )}" data-file-type="${fileType}" data-delete-warning="${deleteWarning}" id="delete-btn-${escapeHtml(
+            file.filename
+          ).replace(/[^a-zA-Z0-9]/g, "_")}">
+                    <i class="bi bi-trash"></i> Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      // Global variables
+      let deleteConfirmListenerAdded = false;
+
+      // Use event delegation for delete buttons to handle dynamically added buttons
+      document.addEventListener("click", function (e) {
+        if (e.target.closest(".btn-delete")) {
+          e.preventDefault();
+          const button = e.target.closest(".btn-delete");
+          const filename = button.getAttribute("data-filename");
+          const fileType = button.getAttribute("data-file-type");
+          const deleteWarning = button.getAttribute("data-delete-warning");
+
+          if (filename && fileType && deleteWarning) {
+            confirmDelete(filename, fileType, deleteWarning);
+          }
+        }
+      });
+
+      // Confirm deletion
+      function confirmDelete(filename, fileType, deleteWarning) {
+        currentFileToDelete = filename;
+        document.getElementById("fileToDelete").textContent = filename;
+
+        // Update modal content based on file type
+        const modalBody = document.querySelector("#deleteModal .modal-body");
+        modalBody.innerHTML = `
+          <p>Are you sure you want to delete this ${fileType.toLowerCase()} from the knowledge base?</p>
+          <p><strong>${filename}</strong></p>
+          <p class="text-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            This action cannot be undone. ${deleteWarning}
+          </p>
+        `;
+
+        // Reset modal state before showing
+        const confirmBtn = document.getElementById("confirmDelete");
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = "Delete File";
+
+        // Dispose of any existing modal instance first
+        const modalElement = document.getElementById("deleteModal");
+        const existingModal = bootstrap.Modal.getInstance(modalElement);
+        if (existingModal) {
+          existingModal.dispose();
+        }
+
+        // Create new modal instance
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+      }
+
+      // Show success message
+      function showSuccess(message) {
+        const messageArea = document.getElementById("messageArea");
+        messageArea.innerHTML = `
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        `;
+      }
+
+      // Show error message
+      function showError(message) {
+        const messageArea = document.getElementById("messageArea");
+        messageArea.innerHTML = `
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        `;
+      }
+
+      // Escape HTML to prevent XSS
+      function escapeHtml(text) {
+        const map = {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        };
+        return text.replace(/[&<>"']/g, function (m) {
+          return map[m];
+        });
+      }
+
+      // Re-enable delete buttons
+      function enableDeleteButtons() {
+        const deleteButtons = document.querySelectorAll(".btn-delete");
+        deleteButtons.forEach((btn) => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-trash"></i> Delete';
+        });
+      }
+    </script>
+  </body>
+</html>

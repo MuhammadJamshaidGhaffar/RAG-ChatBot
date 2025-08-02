@@ -26,7 +26,7 @@ sys.path.append(str(project_root / "database"))
 from mongo_client import get_mongo_client
 from utils.constants import IMAGES_COLLECTION, VIDEOS_COLLECTION, EXTRAS_COLLECTION, CHUNK_SIZE, CHUNK_OVERLAP
 
-from utils.vector_db import get_pinecone_vector_store, get_pinecone_stats
+from utils.vector_db import get_pinecone_vector_store, get_pinecone_stats, list_uploaded_files, delete_file_from_pinecone, add_file_to_database
 
 
 class ProgressTrackingVectorStore:
@@ -115,6 +115,7 @@ def add_documents_to_vector_store_with_batching(vector_store, documents, metadat
                     # Generate UUIDs for this batch
                     batch_uuids = [str(uuid.uuid4()) for _ in range(len(batch_chunks))]
                     
+                    print(batch_chunks)
                     # Add documents to vector store (this is where embeddings are generated)
                     vector_store.add_documents(documents=batch_chunks, ids=batch_uuids)
                     
@@ -425,8 +426,17 @@ def process_document_file(file_path: str, filename: str, file_type: str) -> JSON
             loader = PyPDFLoader(file_path)
             docs = loader.load()
         elif file_type == "txt":
-            loader = TextLoader(file_path)
-            docs = loader.load()
+            print("DEBUG: Got text file, using simple Python file reading")
+            # Read text file directly with Python instead of LangChain loader
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text_content = f.read()
+            
+            # Create a document-like object to maintain consistency
+            docs = [type('Document', (), {
+                'page_content': text_content,
+                'metadata': {"source": filename}
+            })()]
+            print("DEBUG: Successfully read text file contents")
         elif file_type == "docx":
             # Use custom function to preserve layout and hyperlinks
             docx_content = extract_docx_with_layout_preserved(file_path)
@@ -442,7 +452,7 @@ def process_document_file(file_path: str, filename: str, file_type: str) -> JSON
         vector_store = get_pinecone_vector_store()
         
         # Process with batching (configurable batch size, default 3 chunks at a time)
-        batch_size = 3  # Default value
+        batch_size = 1  # Default value
         max_retries = 5  # Default value
         
         # Check if there's a custom batch size and max retries configuration
@@ -462,6 +472,7 @@ def process_document_file(file_path: str, filename: str, file_type: str) -> JSON
         except:
             print(f"DEBUG: Using default settings - batch size: {batch_size}, max retries: {max_retries}")
         
+        print("DEBUG: Starting batch processing for document upload")
         batch_result = add_documents_to_vector_store_with_batching(
             vector_store,
             [doc.page_content for doc in docs],
@@ -473,6 +484,13 @@ def process_document_file(file_path: str, filename: str, file_type: str) -> JSON
         # Update last upload time only if at least some chunks were successful
         if batch_result["successful_chunks"] > 0:
             update_last_upload_time()
+            
+            # Add file record to MongoDB for tracking
+            try:
+                add_file_to_database(filename, datetime.now().isoformat(), "document")
+            except Exception as db_error:
+                print(f"DEBUG: Failed to add file to database: {str(db_error)}")
+                # Don't fail the upload if database record fails
 
         # Prepare response message based on results
         if batch_result["failed_batches"]:
@@ -506,14 +524,14 @@ def process_document_file(file_path: str, filename: str, file_type: str) -> JSON
     except Exception as e:
         return JSONResponse(content={"message": f"❌ Error processing document: {str(e)}"})
     
-    finally:
+    # finally:
         # Always clean up the temporary file after processing
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                print(f"DEBUG: Cleaned up temporary file: {file_path}")
-        except Exception as cleanup_error:
-            print(f"DEBUG: Error cleaning up file {file_path}: {cleanup_error}")
+        # try:
+        #     if os.path.exists(file_path):
+        #         os.remove(file_path)
+        #         print(f"DEBUG: Cleaned up temporary file: {file_path}")
+        # except Exception as cleanup_error:
+        #     print(f"DEBUG: Error cleaning up file {file_path}: {cleanup_error}")
 
 
 def upload_images_csv(file_path: str, filename: str) -> JSONResponse:
@@ -544,6 +562,13 @@ def upload_images_csv(file_path: str, filename: str) -> JSONResponse:
                 collection.insert_many(images)
                 # Update last upload time
                 update_last_upload_time()
+                
+                # Add file record to tracking database
+                try:
+                    add_file_to_database(filename, datetime.now().isoformat(), "images_csv")
+                except Exception as db_error:
+                    print(f"DEBUG: Failed to add images CSV file to database: {str(db_error)}")
+                
                 return JSONResponse(content={
                     "message": f"✅ Successfully uploaded {len(images)} images from {filename} to the images collection!",
                     "count": len(images)
@@ -583,6 +608,13 @@ def upload_videos_csv(file_path: str, filename: str) -> JSONResponse:
                 collection.insert_many(videos)
                 # Update last upload time
                 update_last_upload_time()
+                
+                # Add file record to tracking database
+                try:
+                    add_file_to_database(filename, datetime.now().isoformat(), "videos_csv")
+                except Exception as db_error:
+                    print(f"DEBUG: Failed to add videos CSV file to database: {str(db_error)}")
+                
                 return JSONResponse(content={
                     "message": f"✅ Successfully uploaded {len(videos)} videos from {filename} to the videos collection!",
                     "count": len(videos)
@@ -660,6 +692,30 @@ def get_knowledge_base_stats():
             "total_videos": 0,
             "last_upload": "Never"
         }
+
+
+def get_uploaded_files_list():
+    """Get list of uploaded files in the knowledge base"""
+    try:
+        return list_uploaded_files()
+    except Exception as e:
+        print(f"DEBUG: Error getting uploaded files: {str(e)}")
+        return []
+
+
+def delete_uploaded_file(filename):
+    """Delete an uploaded file from the knowledge base"""
+    try:
+        result = delete_file_from_pinecone(filename)
+        
+        if result["success"]:
+            # Update last upload time after deletion
+            update_last_upload_time()
+        
+        return result
+    except Exception as e:
+        print(f"DEBUG: Error deleting uploaded file: {str(e)}")
+        return {"success": False, "message": f"Error deleting file: {str(e)}"}
 
 
 # This function is to be used insdie extract_docx_with_layout_preserved ...

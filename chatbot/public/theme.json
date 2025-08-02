@@ -1,10 +1,10 @@
 {
     "custom_fonts": [
-        "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+        "https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@100..900&display=swap", "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
     ],
     "variables": {
         "light": {
-            "--font-sans": "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            "--font-sans": "'Noto Sans Arabic', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
             "--font-mono": "source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace",
             "--background": "0 0% 97%",
             "--foreground": "210 11% 26%",
@@ -36,7 +36,7 @@
             "--sidebar-ring": "4 89% 35%"
         },
         "dark": {
-            "--font-sans": "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            "--font-sans": "'Noto Sans Arabic', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
             "--font-mono": "source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace",
             "--background": "210 11% 8%",
             "--foreground": "0 0% 95%",

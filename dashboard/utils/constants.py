@@ -1,21 +1,15 @@
 # constants.py
 
-# Text splitting
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 100
+# Text splitting - Optimized for admission assistance content
+CHUNK_SIZE = 1500  # Increased for better context retention in educational content
+CHUNK_OVERLAP = 200  # Increased overlap to maintain context across chunks
 
-# Retriever
-RETRIEVER_K = 3
+# Retriever - Increased for comprehensive admission information
+RETRIEVER_K = 5  # Retrieve more chunks for thorough admission answers
 
-MAX_HISTORY_TOKENS = 500
-MAX_INPUT_TOKENS = 20
-MAX_OUTPUT_TOKENS = 750
-
-
-# Text splitting
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 100
-
+MAX_HISTORY_TOKENS = 2000  # Increased to maintain longer conversation context
+MAX_INPUT_TOKENS = 750  # Increased to allow longer questions
+MAX_OUTPUT_TOKENS = 1500  # Increased for comprehensive responses
 
 END_TOKEN = "[END_RESPONSE]"
 
@@ -28,4 +22,8 @@ EXTRAS_COLLECTION = "extras"
 
 CHAT_HISTORY_COLLECTION = "chat_history"
 QUESTIONS_COLLECTION = "questions"
+
+UPLOADED_FILES_COLLECTION = "uploaded_files"
+
+
 

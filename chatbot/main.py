@@ -92,10 +92,11 @@ async def handle_message(message: cl.Message):
     # Normal chat processing for all users (KYC complete or no KYC needed)
     kyc = cl.user_session.get("kyc", {})
     user_input = message.content
-    user_name = kyc.get('name', 'Unknown') if kyc else 'Unknown'
+    # Only use the name if it's actually provided and not None/empty
+    user_name = kyc.get('name') if kyc and kyc.get('name') else None
     user_faculty = kyc.get('faculty', 'Unknown') if kyc else 'Unknown'
     
-    print(f"DEBUG: Processing question from user: {user_name}")
+    print(f"DEBUG: Processing question from user: {user_name or 'Anonymous'}")
     print(f"DEBUG: User input: '{user_input}'")
     print(f"DEBUG: User faculty: {user_faculty}")
 

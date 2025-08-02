@@ -17,6 +17,7 @@ from app.middleware.auth import AuthMiddleware
 from app.routes.auth import login_page, login_submit, logout
 from app.routes.main import home, upload_file, upload_page
 from app.routes.dashboard import dashboard, change_password
+from app.routes.file_management import list_files, delete_file, get_files_json
 from app.routes.config import (
     get_chat_storage_setting, 
     update_chat_storage_setting, 
@@ -161,6 +162,25 @@ async def get_gemini_api_key_config(request: Request):
 async def post_gemini_api_key_config(api_key_data: GeminiApiKeyUpdate):
     """Update Gemini API key configuration"""
     return await update_gemini_api_key(api_key_data)
+
+
+# File management routes
+@app.get("/files")
+async def get_files_page(request: Request):
+    """File management page"""
+    return await list_files(request)
+
+
+@app.get("/api/files")
+async def get_files_api(request: Request):
+    """Get list of uploaded files as JSON"""
+    return await get_files_json(request)
+
+
+@app.delete("/api/files/{filename}")
+async def delete_file_api(request: Request, filename: str):
+    """Delete a file from the knowledge base"""
+    return await delete_file(request, filename)
 
 
 # ==================== APPLICATION STARTUP ====================
