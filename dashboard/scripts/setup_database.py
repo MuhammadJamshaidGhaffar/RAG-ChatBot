@@ -81,28 +81,35 @@ def create_collections():
     # Connect to MongoDB
     db = get_mongo_client()
     
-    # Create config collection with default storage mode and Gemini API key
+    # Create config collection with default chat storage and Gemini API key
     config_collection = db[CONFIG_COLLECTION]
     try:
-        # Check if storage config exists, if not create default
-        existing_config = config_collection.find_one({"key": "storage_mode"})
-        if not existing_config:
-            default_config = {"key": "storage_mode", "value": "questions"}
-            config_collection.insert_one(default_config)
-            print(f"Created {CONFIG_COLLECTION} collection with default storage mode: questions")
+        # Check if chat storage config exists, if not create default
+        existing_chat_config = config_collection.find_one({"chat_storage": {"$exists": True}})
+        if not existing_chat_config:
+            default_chat_config = {
+                "chat_storage": {
+                    "save_full_chat": True,
+                    "save_questions_only": False,
+                    "enabled": True
+                },
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            config_collection.insert_one(default_chat_config)
+            print(f"✅ Created {CONFIG_COLLECTION} collection with default chat storage config")
         else:
-            print(f"{CONFIG_COLLECTION} collection already exists with storage mode: {existing_config['value']}")
+            print(f"ℹ️  {CONFIG_COLLECTION} collection already exists with chat storage config")
             
         # Check if Gemini API key config exists, if not create placeholder
-        existing_gemini_config = config_collection.find_one({"key": "gemini_api_key"})
+        existing_gemini_config = config_collection.find_one({"gemini_api_key": {"$exists": True}})
         if not existing_gemini_config:
             # Get from environment or create placeholder
             gemini_api_key = os.getenv("GEMINI_API_KEY", "")
             gemini_config = {
-                "key": "gemini_api_key", 
-                "value": gemini_api_key,
-                "created_at": datetime.now(timezone.utc),
-                "updated_at": datetime.now(timezone.utc)
+                "gemini_api_key": gemini_api_key,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }
             config_collection.insert_one(gemini_config)
             if gemini_api_key:
@@ -113,7 +120,7 @@ def create_collections():
             print(f"ℹ️  Gemini API key configuration already exists")
             
     except Exception as e:
-        print(f"Config collection setup error: {e}")
+        print(f"❌ Config collection setup error: {e}")
     
     # Create chat_history collection
     chat_collection = db[CHAT_HISTORY_COLLECTION]
