@@ -81,13 +81,17 @@ def create_collections():
     # Connect to MongoDB
     db = get_mongo_client()
     
-    # Create config collection with default chat storage and Gemini API key
+    # Create config collection with app_settings document structure
     config_collection = db[CONFIG_COLLECTION]
     try:
-        # Check if chat storage config exists, if not create default
-        existing_chat_config = config_collection.find_one({"chat_storage": {"$exists": True}})
-        if not existing_chat_config:
-            default_chat_config = {
+        # Check if app_settings config exists, if not create default
+        existing_config = config_collection.find_one({"_id": "app_settings"})
+        if not existing_config:
+            # Get Gemini API key from environment
+            gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+            
+            app_settings_config = {
+                "_id": "app_settings",
                 "chat_storage": {
                     "save_full_chat": True,
                     "save_questions_only": False,
@@ -96,28 +100,45 @@ def create_collections():
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
-            config_collection.insert_one(default_chat_config)
-            print(f"✅ Created {CONFIG_COLLECTION} collection with default chat storage config")
-        else:
-            print(f"ℹ️  {CONFIG_COLLECTION} collection already exists with chat storage config")
-            
-        # Check if Gemini API key config exists, if not create placeholder
-        existing_gemini_config = config_collection.find_one({"gemini_api_key": {"$exists": True}})
-        if not existing_gemini_config:
-            # Get from environment or create placeholder
-            gemini_api_key = os.getenv("GEMINI_API_KEY", "")
-            gemini_config = {
-                "gemini_api_key": gemini_api_key,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-            config_collection.insert_one(gemini_config)
+            config_collection.insert_one(app_settings_config)
+            print(f"✅ Created {CONFIG_COLLECTION} collection with app_settings config")
             if gemini_api_key:
                 print(f"✅ Gemini API key configured from environment")
             else:
                 print(f"⚠️  Gemini API key placeholder created - configure via dashboard")
         else:
-            print(f"ℹ️  Gemini API key configuration already exists")
+            print(f"ℹ️  app_settings config already exists in {CONFIG_COLLECTION} collection")
+            # Check if chat_storage exists in existing config
+            if "chat_storage" not in existing_config:
+                # Add chat_storage to existing config
+                config_collection.update_one(
+                    {"_id": "app_settings"},
+                    {
+                        "$set": {
+                            "chat_storage": {
+                                "save_full_chat": True,
+                                "save_questions_only": False,
+                                "enabled": True
+                            },
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+                print(f"✅ Added chat_storage config to existing app_settings")
+            
+            # Check if gemini_api_key exists in existing config
+            if "gemini_api_key" not in existing_config:
+                gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+                config_collection.update_one(
+                    {"_id": "app_settings"},
+                    {
+                        "$set": {
+                            "gemini_api_key": gemini_api_key,
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+                print(f"✅ Added Gemini API key to existing app_settings")
             
     except Exception as e:
         print(f"❌ Config collection setup error: {e}")
