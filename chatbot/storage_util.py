@@ -50,6 +50,7 @@ def get_storage_config():
 
 def save_interaction_data(user_input, ai_response, storage_mode):
     """Save interaction data based on storage mode configuration."""
+    print(f"DEBUG: Saving interaction data with storage mode: {storage_mode}")
     if not storage_mode:
         print("DEBUG: Storage disabled, skipping save")
         return
