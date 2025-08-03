@@ -92,7 +92,6 @@ def save_interaction_data(user_input, ai_response, storage_mode):
                 "session_id": session_id,
                 "timestamp": timestamp,
                 "question": user_input,
-                "answer": ai_response
             }
             questions_collection.insert_one(question_doc)
             
