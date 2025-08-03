@@ -1,8 +1,20 @@
 import React from 'react';
 
-const RegisterButton = ({ url, text = "📝 Register My Application", description = "Click on the button to complete your university application" }) => {
+
+const RegisterButton = () => {
+
+    // { url, text = "📝 Register My Application", description = "Click on the button to complete your university application" }
+    
+    const url = props.url || "https://bit.ly/fue_asknour";
+    const text = props.text || "📝 Register My Application";
+    const description = props.description || "Click on the button to complete your university application";
+
+console.log(`DEBUG: ============ RegisterButton Props ============`);
+console.log(`DEBUG : props : ${JSON.stringify(props)}`);
+
   const handleClick = () => {
     // Open the registration URL in a new tab
+    console.log(`DEBUG: Opening registration URL: ${url}`);
     window.open(url, '_blank');
   };
 

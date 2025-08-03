@@ -293,6 +293,30 @@ def create_llm_chain(vectordb):
     reraise=True,
     before_sleep=lambda retry_state: print(f"⚠️ Quota hit in chat. Retrying... attempt #{retry_state.attempt_number}")
 )
+# def run_chain_with_retry(chain, user_input, user_name, faculty, chat_history):
+#     print("Running chain with retry...")
+#     print("User Input:", user_input)
+#     print("Chat History:", chat_history)
+    
+#     # Filter out unknown names - only pass the name if it's actually known
+#     filtered_user_name = user_name if user_name and user_name.lower() not in ['unknown', 'none', ''] else ""
+#     print(f"DEBUG: Original user_name: '{user_name}', Filtered user_name: '{filtered_user_name}'")
+    
+#     try:
+#         result = chain.stream({
+#             "input": user_input,
+#             "user_name": filtered_user_name,
+#             "faculty": faculty,
+#             "chat_history": chat_history
+#         })
+#         print("DEBUG: Chain stream started successfully")
+#         return result
+#     except Exception as e:
+#         print(f"ERROR: Failed to start chain stream: {e}")
+#         # Return empty generator if chain fails completely
+#         def empty_generator():
+#             yield "I apologize, but I'm experiencing technical difficulties. Please try again."
+#         return empty_generator()
 def run_chain_with_retry(chain, user_input, user_name, faculty, chat_history):
     print("Running chain with retry...")
     print("User Input:", user_input)
@@ -303,13 +327,13 @@ def run_chain_with_retry(chain, user_input, user_name, faculty, chat_history):
     print(f"DEBUG: Original user_name: '{user_name}', Filtered user_name: '{filtered_user_name}'")
     
     try:
-        result = chain.stream({
+        result = chain.invoke({
             "input": user_input,
             "user_name": filtered_user_name,
             "faculty": faculty,
             "chat_history": chat_history
         })
-        print("DEBUG: Chain stream started successfully")
+        print("DEBUG: Chain invoked successfully")
         return result
     except Exception as e:
         print(f"ERROR: Failed to start chain stream: {e}")

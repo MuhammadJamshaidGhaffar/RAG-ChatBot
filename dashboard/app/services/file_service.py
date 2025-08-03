@@ -524,14 +524,14 @@ def process_document_file(file_path: str, filename: str, file_type: str) -> JSON
     except Exception as e:
         return JSONResponse(content={"message": f"❌ Error processing document: {str(e)}"})
     
-    # finally:
+    finally:
         # Always clean up the temporary file after processing
-        # try:
-        #     if os.path.exists(file_path):
-        #         os.remove(file_path)
-        #         print(f"DEBUG: Cleaned up temporary file: {file_path}")
-        # except Exception as cleanup_error:
-        #     print(f"DEBUG: Error cleaning up file {file_path}: {cleanup_error}")
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"DEBUG: Cleaned up temporary file: {file_path}")
+        except Exception as cleanup_error:
+            print(f"DEBUG: Error cleaning up file {file_path}: {cleanup_error}")
 
 
 def upload_images_csv(file_path: str, filename: str) -> JSONResponse:

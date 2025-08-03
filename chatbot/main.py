@@ -58,9 +58,13 @@ async def handle_message(message: cl.Message):
     print(f"DEBUG: Current KYC data: {cl.user_session.get('kyc', {})}")
     print(f"DEBUG: Chat history when handle_message started: {cl.chat_context.to_openai()}")
 
-    # Check if user wants to apply or if KYC is in progress
-    kyc_result = await handle_kyc(message)
-    print(f"DEBUG: KYC handling result: {kyc_result}")
+    kyc_completed = cl.user_session.get("is_kyc_complete", False)
+    kyc_result = None  # Initialize kyc_result to None
+
+    if not kyc_completed:
+        # Check if user wants to apply or if KYC is in progress
+        kyc_result = await handle_kyc(message)
+        print(f"DEBUG: KYC handling result: {kyc_result}")
     
     # If kyc_result is None, it means no application intent and no active KYC - proceed with normal chat
     # If kyc_result is False, it means KYC is in progress but not complete - return
@@ -134,19 +138,22 @@ async def handle_message(message: cl.Message):
         print(f"DEBUG: Trimmed history content: {trimmed}")
         
         print(f"DEBUG: Starting chain execution with params - user: {user_name}, faculty: {user_faculty}")
-        response_text = ""
+        # response_text = ""
         
         # Collect all tokens first, then stream the clean part
-        all_tokens = []
-        for token in run_chain_with_retry(answer_chain, user_input, user_name, user_faculty, trimmed):
-            all_tokens.append(token)
-            response_text += token
-            print(f"DEBUG: Received token: '{token}', total response length: {len(response_text)}")
+        # all_tokens = []
+        # for token in run_chain_with_retry(answer_chain, user_input, user_name, user_faculty, trimmed):
+        #     all_tokens.append(token)
+        #     response_text += token
+        #     print(f"DEBUG: Received token: '{token}', total response length: {len(response_text)}")
             
-            # If we detect END_TOKEN, stop collecting
-            if END_TOKEN in response_text:
-                print(f"DEBUG: END_TOKEN detected, stopping token collection")
-                break
+        #     # If we detect END_TOKEN, stop collecting
+        #     if END_TOKEN in response_text:
+        #         print(f"DEBUG: END_TOKEN detected, stopping token collection")
+        #         break
+        result =  run_chain_with_retry(answer_chain, user_input, user_name, user_faculty, trimmed)
+        response_text = result.content if hasattr(result, 'content') else result
+        print(f"DEBUG: LLM response received, length: {len(response_text)} characters")
         
         # Extract the clean content (everything before END_TOKEN)
         clean_content = response_text.split(END_TOKEN)[0] if END_TOKEN in response_text else response_text

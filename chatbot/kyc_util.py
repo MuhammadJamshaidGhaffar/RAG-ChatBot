@@ -238,6 +238,7 @@ If KYC is complete (no missing fields, no errors):
 - End with: {END_TOKEN}
 - Then add: COMPLETION_STATUS=true
 - Then add: SHOW_REGISTER_BUTTON=true
+- You must add these 2 variables after {END_TOKEN} in the response
 
 If there are missing fields or validation errors:
 - Provide helpful guidance on what information is still needed
@@ -246,6 +247,7 @@ If there are missing fields or validation errors:
 - End with: {END_TOKEN}
 - Then add: COMPLETION_STATUS=false
 - Then add: SHOW_REGISTER_BUTTON=false
+- You must add these 2 variables after {END_TOKEN} in the response
 
 Make the messages friendly, professional, and specific to the issues found. Use emojis appropriately.
 
@@ -325,7 +327,8 @@ Feel free to ask any questions about FUE, or if you're ready to apply, just let 
     # Send Message with logo and register button
     await cl.Message(
         content=welcome,
-        elements=[logo_image, register_button]
+        # elements=[logo_image, register_button]
+        elements=[register_button]
     ).send()
 
 
@@ -383,18 +386,25 @@ async def handle_kyc(message: cl.Message):
                     welcome_msg = cl.Message(content="")
                     await welcome_msg.send()
                     
-                    welcome_stream = welcome_chain.stream({
+                    # welcome_stream = welcome_chain.stream({
+                    #     "application_url": REGISTER_BUTTON_URL,
+                    #     "user_message": message.content
+                    # })
+                    
+                    # # Collect welcome tokens and stream smoothly
+                    # welcome_content = ""
+                    # for chunk in welcome_stream:
+                    #     if hasattr(chunk, 'content'):
+                    #         token = chunk.content
+                    #         welcome_content += token
+                    
+                    # Use invoke instead of streaming
+                    welcome_response = welcome_chain.invoke({
                         "application_url": REGISTER_BUTTON_URL,
                         "user_message": message.content
                     })
                     
-                    # Collect welcome tokens and stream smoothly
-                    welcome_content = ""
-                    for chunk in welcome_stream:
-                        if hasattr(chunk, 'content'):
-                            token = chunk.content
-                            welcome_content += token
-                    
+                    welcome_content = welcome_response.content if hasattr(welcome_response, 'content') else str(welcome_response)
                     # Stream the welcome content in chunks
                     if welcome_content.strip():
                         chunk_size = 3  # Stream 3 characters at a time
@@ -526,7 +536,36 @@ async def handle_kyc(message: cl.Message):
         # Stream the response
         print("DEBUG: Starting streaming response for KYC message")
         try:
-            response_stream = message_chain.stream({
+            # OLD STREAMING CODE (COMMENTED OUT)
+            # response_stream = message_chain.stream({
+            #     "kyc_state": str(kyc),
+            #     "missing_fields": missing,
+            #     "validation_errors": validation_errors,
+            #     "user_message": message.content,
+            #     "faculties": FACULTIES,
+            #     "END_TOKEN": END_TOKEN
+            # })
+            
+            # response_text = ""
+            
+            # # Collect all tokens first, then stream the clean part
+            # all_tokens = []
+            # for chunk in response_stream:
+            #     if hasattr(chunk, 'content'):
+            #         token = chunk.content
+            #         all_tokens.append(token)
+            #         response_text += token
+            #         print(f"DEBUG: Received KYC token: '{token}', total response length: {len(response_text)}")
+                    
+            #         # If we detect END_TOKEN, stop collecting
+            #         if END_TOKEN in response_text:
+            #             print(f"DEBUG: END_TOKEN detected in KYC response, stopping token collection")
+            
+            # # Extract the clean content (everything before END_TOKEN)
+            # clean_content = response_text.split(END_TOKEN)[0] if END_TOKEN in response_text else response_text
+            
+            # Get full response using invoke
+            message_response = message_chain.invoke({
                 "kyc_state": str(kyc),
                 "missing_fields": missing,
                 "validation_errors": validation_errors,
@@ -535,21 +574,8 @@ async def handle_kyc(message: cl.Message):
                 "END_TOKEN": END_TOKEN
             })
             
-            response_text = ""
-            
-            # Collect all tokens first, then stream the clean part
-            all_tokens = []
-            for chunk in response_stream:
-                if hasattr(chunk, 'content'):
-                    token = chunk.content
-                    all_tokens.append(token)
-                    response_text += token
-                    print(f"DEBUG: Received KYC token: '{token}', total response length: {len(response_text)}")
-                    
-                    # If we detect END_TOKEN, stop collecting
-                    if END_TOKEN in response_text:
-                        print(f"DEBUG: END_TOKEN detected in KYC response, stopping token collection")
-                        break
+            response_text = message_response.content if hasattr(message_response, 'content') else str(message_response)
+            print(f"DEBUG: Full KYC response received: '{response_text[:100]}...'")
             
             # Extract the clean content (everything before END_TOKEN)
             clean_content = response_text.split(END_TOKEN)[0] if END_TOKEN in response_text else response_text
