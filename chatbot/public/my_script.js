@@ -855,6 +855,11 @@ function addAskNourBranding() {
   addFUEHeader();
 }
 
+function removeWaterMark() {
+  const watermark = document.querySelector(".watermark");
+  if (watermark) watermark.remove();
+}
+
 // Function to add custom styles for branding (legacy - replaced by addFUEHeaderStyles)
 // function addBrandingStyles() {
 //   if (!document.querySelector("#ask-nour-header-styles")) {
@@ -908,6 +913,7 @@ function initializeAskNourCustomizations() {
   // Run hideBuiltWithChainlit periodically to catch late-loading elements
   setInterval(() => {
     hideBuiltWithChainlit();
+    removeWaterMark();
   }, 1000);
 }
 
