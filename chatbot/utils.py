@@ -36,6 +36,7 @@ from constants import  MAX_HISTORY_TOKENS, END_TOKEN, CHUNK_OVERLAP, CHUNK_SIZE,
 _cached_api_key = None
 _cached_llm_chain = None
 _cached_media_llm_chain = None
+_cached_media_decision_chain = None
 _cached_vector_store = None
 
 def get_gemini_api_key_from_mongo():
@@ -84,11 +85,12 @@ def get_gemini_api_key_from_mongo():
 
 def clear_llm_cache():
     """Clear cached LLM instances to force refresh with new API key."""
-    global _cached_api_key, _cached_llm_chain, _cached_media_llm_chain, _cached_vector_store
+    global _cached_api_key, _cached_llm_chain, _cached_media_llm_chain, _cached_media_decision_chain, _cached_vector_store
     print("DEBUG: Clearing LLM cache to refresh API key")
     _cached_api_key = None
     _cached_llm_chain = None
     _cached_media_llm_chain = None
+    _cached_media_decision_chain = None
     _cached_vector_store = None
 
 
@@ -130,6 +132,21 @@ def get_cached_media_llm_chain():
         _cached_media_llm_chain = get_media_selector_llm_chain()
     
     return _cached_media_llm_chain
+
+
+def get_cached_media_decision_chain():
+    """Get cached media decision chain or create new one if API key changed."""
+    global _cached_api_key, _cached_media_decision_chain
+    
+    current_api_key = get_gemini_api_key_from_mongo()
+    
+    # If API key changed or no cached instance, recreate
+    if _cached_api_key != current_api_key or _cached_media_decision_chain is None:
+        print("DEBUG: API key changed or no cached media decision chain, creating fresh instance")
+        _cached_api_key = current_api_key
+        _cached_media_decision_chain = get_media_decision_llm_chain()
+    
+    return _cached_media_decision_chain
 
 def trim_chat_history(raw_history: list[dict]):
     print(f"DEBUG: Starting trim_chat_history with {len(raw_history)} messages")
@@ -222,6 +239,7 @@ def create_llm_chain(vectordb):
         "You are Nour, a friendly admission assistant at Future University in Egypt for question-answering tasks. "
         "Use the following pieces of retrieved context to answer questions comprehensively and professionally. "
         "Detect the language of the user's question (English, Arabic, or Franco-Arabic, which is Arabic text mixed with Latin characters or French words) and respond in the same language. "
+        "For English inputs respond in English. "
         "For Franco-Arabic inputs, respond in standard Arabic. "
         "If you don't know the answer, say that you don't know. "
         "Only personalize with the user's name if {user_name} is provided and not 'Unknown' or None. "
@@ -248,24 +266,20 @@ def create_llm_chain(vectordb):
         "3. Use bullet points for detailed lists or requirements\n"
         "4. End with helpful next steps or additional assistance offer\n"
 
-        "Output the response in plain text with the following structure:\n"
-        "- The answer text, followed by the end_token [END_RESPONSE].\n"
-        "- After [END_RESPONSE], include metadata in the format:\n"
-        "  include_media=(true/false),keywords=(keyword1,keyword2,...)\n"
+        "**MEDIA INTEGRATION:**\n"
+        "If media descriptions are provided below, integrate them naturally into your response:\n"
+        "- ONLY mention images if {image_descriptions} contains actual descriptions\n"
+        "- ONLY mention videos if {video_descriptions} contains actual descriptions\n"
+        "- Use phrases like 'Let me show you some images of...' ONLY when images are actually available\n"
+        "- Use phrases like 'Here are some videos about...' ONLY when videos are actually available\n"
+        "- If no media is available, provide a complete answer without mentioning media capabilities\n"
+        "- If user explicity asked to show media and no media found then say I haven't found any image relevant to your question\n"
+        "- Never say I am a langauge model and I can't show images. You can but it is possible no relevant images or vidoes were found."
+        "- Do NOT promise to show media if none is available\n\n"
 
-        "- Set include_media=true **only if**:\n"
-        "  • the user explicitly requests media (e.g., asks for videos, photos, pictures, etc.), OR\n"
-        "  • you believe media would enhance the response (e.g., when the user asks about a department, facilities, labs, faculty members, etc.).\n"
+        "Available Image Descriptions: {image_descriptions}\n"
+        "Available Video Descriptions: {video_descriptions}\n\n"
 
-        "- Include keywords (e.g., Pharmacy,labs,صيدلة) **only if include_media=true**.\n"
-        "- Do **not** include keywords if include_media=false.\n"
-
-        "- **IMPORTANT**: When include_media=true, respond as if you will show the media. Use phrases like 'Let me show you...', 'Here are some...', 'I'll display...', etc. Do NOT say you cannot show media.\n"
-        "- When include_media=false, provide a complete answer without mentioning media capabilities.\n"
-
-        "- Do **not** mention flags, internal variables, or implementation details in your response.\n"
-        "- Remain conversational and helpful without revealing how you work behind the scenes.\n"
-        "- "
         "{context}\n"
     )
 
@@ -317,30 +331,61 @@ def create_llm_chain(vectordb):
 #         def empty_generator():
 #             yield "I apologize, but I'm experiencing technical difficulties. Please try again."
 #         return empty_generator()
-def run_chain_with_retry(chain, user_input, user_name, faculty, chat_history):
+def run_chain_with_retry(chain, user_input, user_name, faculty, chat_history, image_descriptions="", video_descriptions=""):
+    print("DEBUG: ========== CHAIN EXECUTION START ==========")
     print("Running chain with retry...")
-    print("User Input:", user_input)
-    print("Chat History:", chat_history)
+    print("User Input:", user_input[:200] + "..." if len(user_input) > 200 else user_input)
+    print("Chat History length:", len(chat_history) if chat_history else 0)
+    print(f"Image Descriptions length: {len(image_descriptions)} chars")
+    print(f"Video Descriptions length: {len(video_descriptions)} chars")
     
     # Filter out unknown names - only pass the name if it's actually known
     filtered_user_name = user_name if user_name and user_name.lower() not in ['unknown', 'none', ''] else ""
     print(f"DEBUG: Original user_name: '{user_name}', Filtered user_name: '{filtered_user_name}'")
     
+    # Prepare parameters
+    params = {
+        "input": user_input,
+        "user_name": filtered_user_name,
+        "faculty": faculty,
+        "chat_history": chat_history,
+        "image_descriptions": image_descriptions,
+        "video_descriptions": video_descriptions
+    }
+    print(f"DEBUG: Chain parameters prepared: {list(params.keys())}")
+    
     try:
-        result = chain.invoke({
-            "input": user_input,
-            "user_name": filtered_user_name,
-            "faculty": faculty,
-            "chat_history": chat_history
-        })
+        print(f"DEBUG: Invoking chain...")
+        result = chain.invoke(params)
         print("DEBUG: Chain invoked successfully")
+        print(f"DEBUG: Result type: {type(result)}")
+        
+        if hasattr(result, 'content'):
+            print(f"DEBUG: Result content length: {len(result.content)} characters")
+            print(f"DEBUG: Result content preview: '{result.content[:200]}...'")
+        else:
+            print(f"DEBUG: Result preview: '{str(result)[:200]}...'")
+            
+        print("DEBUG: ========== CHAIN EXECUTION SUCCESS ==========")
         return result
     except Exception as e:
-        print(f"ERROR: Failed to start chain stream: {e}")
-        # Return empty generator if chain fails completely
-        def empty_generator():
-            yield "I apologize, but I'm experiencing technical difficulties. Please try again."
-        return empty_generator()
+        print(f"DEBUG: ========== CHAIN EXECUTION ERROR ==========")
+        print(f"ERROR: Failed to execute chain: {e}")
+        print(f"ERROR: Error type: {type(e).__name__}")
+        try:
+            import traceback
+            print(f"DEBUG: Full traceback:")
+            traceback.print_exc()
+        except:
+            print(f"DEBUG: Could not print traceback")
+        
+        print(f"DEBUG: Returning fallback response")
+        # Return fallback response object
+        class FallbackResult:
+            def __init__(self):
+                self.content = "I apologize, but I'm experiencing technical difficulties. Please try again."
+        
+        return FallbackResult()
 
 
 async def send_error_message(error_msg: str, user_message : "Message", ):
@@ -358,18 +403,48 @@ async def send_error_message(error_msg: str, user_message : "Message", ):
         print("Removed error message from chat context")
 
 
-def extract_variables_from_response(response_text:str) -> Tuple[bool, List[str]]:
-    meta_match = re.search(r"\[END_RESPONSE\]\s*include_media=(true|false),keywords=\((.*?)\)", response_text, re.DOTALL)
+def extract_variables_from_response(response_text: str) -> Tuple[bool, List[str]]:
+    """
+    Extract media decision and keywords from response text.
+    Handles two formats:
+    1. New format: include_media=(true/false),keywords=(keyword1,keyword2,...)
+    2. Old format: [END_RESPONSE] include_media=(true/false),keywords=(keyword1,keyword2,...)
+    """
+    print(f"DEBUG: ========== EXTRACTING VARIABLES ==========")
+    print(f"DEBUG: Response text length: {len(response_text)} characters")
+    print(f"DEBUG: Response text preview: '{response_text[:300]}...'")
     
-    if meta_match:
-        include_media = meta_match.group(1) == "true"
-        keywords_raw = meta_match.group(2).strip()
+    # Try new format first (from media decision chain)
+    print(f"DEBUG: Trying new format extraction...")
+    new_format_match = re.search(r"include_media=(true|false),keywords=\((.*?)\)", response_text, re.DOTALL)
+    if new_format_match:
+        include_media = new_format_match.group(1) == "true"
+        keywords_raw = new_format_match.group(2).strip()
         keywords = [kw.strip() for kw in keywords_raw.split(",") if kw.strip()]
+        print(f"DEBUG: ✅ NEW FORMAT - include_media={include_media}, keywords={keywords}")
+        print(f"DEBUG: ========================================")
+        return include_media, keywords
     else:
-        include_media = False
-        keywords = []
-
-    return include_media, keywords
+        print(f"DEBUG: ❌ New format not found")
+    
+    # Try old format (from regular chain with END_TOKEN)
+    print(f"DEBUG: Trying old format extraction...")
+    old_format_match = re.search(r"\[END_RESPONSE\]\s*include_media=(true|false),keywords=\((.*?)\)", response_text, re.DOTALL)
+    if old_format_match:
+        include_media = old_format_match.group(1) == "true"
+        keywords_raw = old_format_match.group(2).strip()
+        keywords = [kw.strip() for kw in keywords_raw.split(",") if kw.strip()]
+        print(f"DEBUG: ✅ OLD FORMAT - include_media={include_media}, keywords={keywords}")
+        print(f"DEBUG: ========================================")
+        return include_media, keywords
+    else:
+        print(f"DEBUG: ❌ Old format not found")
+    
+    print(f"DEBUG: ❌ NO FORMAT MATCHED - No media variables found in response text")
+    print(f"DEBUG: Full response text for debugging:")
+    print(f"'{response_text}'")
+    print(f"DEBUG: ========================================")
+    return False, []
 
 def search_media_by_keywords(keywords: List[str], db) -> Tuple[List[Dict], List[Dict]]:
     """
@@ -391,18 +466,83 @@ def search_media_by_keywords(keywords: List[str], db) -> Tuple[List[Dict], List[
     
     # Build regex query for keywords (case-insensitive)
     regex_pattern = "|".join(keywords)
-    query = {"description": {"$regex": regex_pattern, "$options": "i"}}
+    image_query = {"image_description": {"$regex": regex_pattern, "$options": "i"}}
+    video_query = {"video_description": {"$regex": regex_pattern, "$options": "i"}}
     
     # Search images collection
-    image_matches = list(images_coll.find(query))
+    image_matches = list(images_coll.find(image_query))
     
     # Search videos collection
-    video_matches = list(videos_coll.find(query))
+    video_matches = list(videos_coll.find(video_query))
     
     return image_matches, video_matches
 
 
+def get_media_decision_llm_chain():
+    """
+    Chain for Step 1: Decide whether to show media and extract keywords.
+    This is a thinking step that doesn't return user-facing content.
+    """
+    print("DEBUG: Starting get_media_decision_llm_chain()")
+
+    # Get API key from MongoDB or environment
+    api_key = get_gemini_api_key_from_mongo()
+    if not api_key:
+        raise ValueError("❌ Gemini API key not found in MongoDB or environment variables. Please configure it in the dashboard.")
+
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        max_output_tokens=500,  # Smaller token limit for thinking step
+        google_api_key=api_key
+    )
+
+    print(f"DEBUG: Created media decision LLM - model: gemini-2.5-flash, max_tokens: 500")
+
+    system_prompt = (
+        "You are a media decision assistant for Future University in Egypt. "
+        "Analyze the user's question and determine if media (images/videos) would enhance the response. "
+        "The user's selected faculty is {faculty}. "
+        "Use this information to make better decisions about media relevance.\n\n"
+
+        "Set include_media=true ONLY if:\n"
+        "• The user explicitly requests media (photos, videos, pictures, etc.), OR\n"
+        "• The question is about visual subjects like facilities, labs, departments, campus, faculty members, events, etc.\n\n"
+
+        "If include_media=true, provide relevant search keywords in English and Arabic.\n"
+        "Focus on specific terms that would help find relevant media.\n\n"
+
+        "Examples of questions that need media:\n"
+        "- 'Show me the pharmacy labs' → include_media=true, keywords: Pharmacy,labs,صيدلة,معامل\n"
+        "- 'What does the campus look like?' → include_media=true, keywords: campus,university,جامعة,حرم\n"
+        "- 'Tell me about computer science faculty' → include_media=true, keywords: computer science,faculty,علوم الحاسوب,أعضاء هيئة التدريس\n\n"
+
+        "Examples of questions that DON'T need media:\n"
+        "- 'What are the admission requirements?' → include_media=false\n"
+        "- 'How much are the tuition fees?' → include_media=false\n"
+        "- 'What is the application deadline?' → include_media=false\n\n"
+
+        "Output format:\n"
+        "include_media=(true/false),keywords=(keyword1,keyword2,...)\n\n"
+
+        "Do NOT include keywords if include_media=false.\n"
+        "Be conservative - only set include_media=true when media would genuinely help."
+    )
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ])
+
+    chain = prompt | llm
+    return chain
+
+
 def get_media_selector_llm_chain():
+    """
+    Chain for Step 2: Select the most relevant media from available options.
+    This returns JSON with selected media URLs only.
+    """
     print("DEBUG: Starting get_media_selector_llm_chain()")
 
     # Get API key from MongoDB or environment
@@ -412,19 +552,17 @@ def get_media_selector_llm_chain():
 
     llm_media = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
-        max_output_tokens=MAX_OUTPUT_TOKENS,
+        max_output_tokens=1000,  # Smaller token limit for media selection
         response_mime_type="application/json",
         google_api_key=api_key
     )
 
-    print(f"DEBUG: Created media selector LLM - model: gemini-2.5-flash, max_tokens: {MAX_OUTPUT_TOKENS}")
+    print(f"DEBUG: Created media selector LLM - model: gemini-2.5-flash, max_tokens: 1000")
 
     system_prompt = (
-        "You are a media selection assistant. "
-        "Your task is to choose the most relevant media (images and videos) based on the user's question "
-        "and the previous Gemini response. You are provided with candidate media below. "
-        "Select up to 3 images and 3 videos unless the user explicitly asks for more. "
-        "Preserve the original video format exactly as provided (e.g., 'Facebook:<url>' or 'YouTube:<url>').\n\n"
+        "You are a media selection assistant for Future University in Egypt. "
+        "Your task is to select the most relevant media (images and videos) based on the user's question. "
+        "Select up to 3 most relevant images and 3 most relevant videos from the available media below.\n\n"
 
         "Available videos (format: Facebook:<url> or YouTube:<url>):\n"
         "{videos}\n\n"
@@ -432,65 +570,25 @@ def get_media_selector_llm_chain():
         "Available images:\n"
         "{images}\n\n"
 
-        "For the 'text' field, write a natural, user-friendly description of the media content. "
-        "Do NOT mention selection process, keywords, relevance, or internal details. "
-        "Write as if you're naturally describing what the user will see. "
-        "Examples: 'Here's our modern computer lab where students work on programming projects.' "
-        "or 'Take a virtual tour of our engineering facilities and laboratories.'\n\n"
+        "Analyze the user's question and select media that directly relates to their query.\n"
+        "Preserve the original video format exactly as provided (e.g., 'Facebook:<url>' or 'YouTube:<url>').\n\n"
 
-        "Return your answer in the following strict JSON format:\n"
+        "Return your selection in the following strict JSON format:\n"
         "{{\n"
-        '  "images": ["<image_url_1>", "<image_url_2>", "..."],\n'
-        '  "videos": ["Facebook:<url>", "YouTube:<url>", "..."],\n'
-        '  "text": "A natural description of what the user will see in the media."\n'
+        '  "selected_images": ["<image_url_1>", "<image_url_2>", "..."],\n'
+        '  "selected_videos": ["Facebook:<url>", "YouTube:<url>", "..."],\n'
+        '  "image_descriptions": ["description1", "description2", "..."],\n'
+        '  "video_descriptions": ["description1", "description2", "..."]\n'
         "}}\n\n"
+
+        "Include descriptions for the selected media to help the response generation.\n"
         "Do not include any extra commentary, markdown, or text outside the JSON object."
     )
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
         ("human", "{input}"),
-        ("ai", "{previous_response}")
     ])
 
     chain = prompt | llm_media
     return chain
-
-
-def detect_arabic_text(text: str) -> bool:
-    """
-    Detect if text contains Arabic characters.
-    Returns True if Arabic characters are found.
-    """
-    import re
-    # Arabic Unicode range: U+0600-U+06FF (basic Arabic), U+0750-U+077F (Arabic Supplement)
-    # U+FB50-U+FDFF (Arabic Presentation Forms-A), U+FE70-U+FEFF (Arabic Presentation Forms-B)
-    arabic_pattern = re.compile(r'[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]')
-    return bool(arabic_pattern.search(text))
-
-
-def format_message_with_rtl(content: str) -> str:
-    """
-    Format message content with RTL support for Arabic text.
-    Wraps Arabic content in RTL div tags.
-    """
-    if not content:
-        return content
-    
-    # Check if the message contains Arabic text
-    if detect_arabic_text(content):
-        # Split content by lines to handle mixed content
-        lines = content.split('\n')
-        formatted_lines = []
-        
-        for line in lines:
-            if detect_arabic_text(line):
-                # Wrap Arabic lines with RTL direction
-                formatted_lines.append(f'<div dir="rtl" class="ar-text">{line}</div>')
-            else:
-                # Keep non-Arabic lines as LTR
-                formatted_lines.append(line)
-        
-        return '\n'.join(formatted_lines)
-    
-    return content
