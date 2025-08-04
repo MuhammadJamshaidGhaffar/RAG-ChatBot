@@ -293,42 +293,32 @@ async def send_welcome_message():
     
     # Create welcome message with logo
     welcome = f"""
-🎓 **Welcome to Ask Nour - Your FUE Knowledge Companion!**
+🎓 Welcome to Ask Nour - Your FUE Knowledge Companion!
 
-I'm here to assist you with all your **Future University in Egypt (FUE)** inquiries! 
+I'm here to assist you with all your Future University in Egypt (FUE) inquiries!
 
-**💬 What can I help you with today?**
-- Learn about our faculties and programs
-- Get admission requirements and procedures  
-- Explore campus life and facilities
-- **Apply for admission** (I'll guide you through the process!)
+💬 What can I help you with today?
 
-**🎯 Available FUE Faculties:**{faculty_list}
+Learn about our faculties and programs
+Get admission requirements and procedures
+Explore campus life and facilities
+Apply for admission (I'll guide you through the process!)
+
+🎯 Available FUE Faculties:
+• Oral & Dental Medicine
+• Pharmacy
+• Commerce & Business Administration
+• Engineering
+• Computer Science
+• Economics & Political Science
 
 Feel free to ask any questions about FUE, or if you're ready to apply, just let me know! 🚀
-
-**Ready to apply?** Use the button below to start your application:
 """
     
-    # Create image element for the logo
-    logo_image = cl.Image(path="./public/fue-red-logo.jpg", name="FUE Logo", display="inline")
-    
-    # Create register button element
-    register_button = cl.CustomElement(
-        name="RegisterButton", 
-        props={
-            "url": REGISTER_BUTTON_URL,
-            "text": "🎓 Start My Application",
-            "description": "Begin your journey at Future University in Egypt"
-        }, 
-        display="inline"
-    )
     
     # Send Message with logo and register button
     await cl.Message(
-        content=welcome,
-        # elements=[logo_image, register_button]
-        elements=[register_button]
+        content=welcome
     ).send()
 
 

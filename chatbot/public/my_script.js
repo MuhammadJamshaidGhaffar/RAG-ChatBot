@@ -150,43 +150,150 @@ function addDirAutoToArticles() {
   });
 }
 
-// Function to add FUE-style footer
+// Function to replace overflow-auto with overflow-hidden in specific div
+function replaceOverflowClass() {
+  // Target the specific parent div with data-panel-group-id=":rc:"
+  const parentPanel = document.querySelector('[data-panel-group-id=":rc:"]');
+
+  if (parentPanel) {
+    // Look for the specific child div within this exact parent
+    const targetDiv = parentPanel.querySelector(
+      ".flex.flex-row.flex-grow.overflow-auto"
+    );
+
+    if (targetDiv) {
+      // Remove overflow-auto and add overflow-hidden
+      targetDiv.classList.remove("overflow-auto");
+      targetDiv.classList.add("overflow-hidden");
+      console.log(
+        "Successfully replaced overflow-auto with overflow-hidden in:",
+        targetDiv
+      );
+      console.log("Parent container:", targetDiv.parentElement);
+    } else {
+      console.log(
+        "Target child div with overflow-auto not found in the specified parent"
+      );
+    }
+  } else {
+    console.log("Parent div with data-panel-group-id=':rc:' not found");
+  }
+}
+
+// Function to clone new chat button with all event listeners
+function cloneNewChatButton() {
+  // FIRST: Find the header parent div with id="header"
+  const headerDiv = document.querySelector("#header");
+
+  if (!headerDiv) {
+    console.log("Header div with id='header' not found");
+    return null;
+  }
+
+  console.log("Found header div:", headerDiv);
+
+  // THEN: Find the new chat button within the header
+  const originalButton = headerDiv.querySelector("#new-chat-button");
+
+  if (!originalButton) {
+    console.log("Original new chat button not found within header");
+    return null;
+  }
+
+  // Find the parent div that contains the button - this is where the event listeners likely are
+  const buttonContainer = originalButton.closest(".flex.items-center");
+
+  if (!buttonContainer) {
+    console.log("Button container div not found within header");
+    return null;
+  }
+
+  console.log(
+    "Found original button container within header:",
+    buttonContainer
+  );
+  console.log("Container HTML:", buttonContainer.outerHTML);
+
+  // Clone the ENTIRE container with deep cloning to preserve ALL structure and event listeners
+  const clonedContainer = buttonContainer.cloneNode(true);
+
+  // Find the button within the cloned container
+  const clonedButton = clonedContainer.querySelector("button");
+
+  if (clonedButton) {
+    // Update the ID to avoid conflicts
+    clonedButton.id = "header-new-chat-button";
+    clonedButton.setAttribute("data-cloned", "true");
+
+    // Add event listener to reload the page when clicked
+    clonedButton.addEventListener("click", function (e) {
+      console.log("Cloned new chat button clicked - reloading page...");
+      // Small delay to allow any other handlers to complete
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+    });
+  }
+
+  // Add identifier to the container
+  clonedContainer.setAttribute("data-cloned-container", "true");
+
+  console.log(
+    "New chat button container cloned successfully from header with all event listeners preserved"
+  );
+  console.log("Cloned container HTML:", clonedContainer.outerHTML);
+
+  return clonedContainer; // Return the entire container, not just the button
+}
+
+// Function to add FUE-style footer strip after input
 function addFUEFooter() {
-  // Check if our footer already exists
-  if (
-    document.querySelector(".fue-contact-phone") ||
-    document.querySelector(".fue-footer-logo")
-  ) {
+  // Check if our footer strip already exists
+  if (document.querySelector(".fue-bottom-strip")) {
     return;
   }
 
-  // Create contact details element with fixed positioning
-  const contactElement = document.createElement("div");
-  contactElement.className = "fue-contact-phone";
-  contactElement.innerHTML = `
-    <div class="contact-info">
-      <div class="phone-line">
-        <span class="phone-symbol">📞</span>
-        <span class="phone-number">16383</span>
+  // Find the message composer container
+  const messageComposer = document.querySelector("#message-composer");
+  if (!messageComposer) {
+    return;
+  }
+
+  // Find the parent container of message composer
+  const parentContainer = messageComposer.parentElement;
+  if (!parentContainer) {
+    return;
+  }
+
+  // Create the bottom strip with red background
+  const bottomStrip = document.createElement("div");
+  bottomStrip.className = "fue-bottom-strip";
+  bottomStrip.innerHTML = `
+    <div class="strip-content">
+      <!-- Contact details on the left -->
+      <div class="strip-left">
+        <div class="contact-info">
+          <div class="phone-line">
+            <span class="phone-symbol">📞</span>
+            <span class="phone-number">16383</span>
+          </div>
+          <div class="website-line">
+            <span class="website">www.fue.edu.eg</span>
+          </div>
+        </div>
       </div>
-      <div class="website-line">
-        <span class="website">www.fue.edu.eg</span>
+      
+      <!-- Logo on the right -->
+      <div class="strip-right">
+        <img src="/public/branding-logo.png" alt="FUE Logo" class="strip-brand-logo" onerror="this.style.display='none'">
       </div>
     </div>
   `;
 
-  // Create logo element with fixed positioning
-  const logoElement = document.createElement("div");
-  logoElement.className = "fue-footer-logo";
-  logoElement.innerHTML = `
-    <img src="/public/branding-logo.png" alt="FUE Logo" class="footer-brand-logo" onerror="this.style.display='none'">
-  `;
+  // Insert the strip after the message composer
+  parentContainer.insertBefore(bottomStrip, messageComposer.nextSibling);
 
-  // Append to body for fixed positioning
-  document.body.appendChild(contactElement);
-  document.body.appendChild(logoElement);
-
-  console.log("FUE contact and logo added successfully");
+  console.log("FUE bottom strip added successfully");
 }
 
 // Function to add FUE-style header to replace the existing header
@@ -202,6 +309,18 @@ function addFUEHeader() {
     return;
   }
 
+  // FIRST: Clone the new chat button BEFORE replacing the header
+  const originalButton = document.querySelector("#new-chat-button");
+  let clonedButtonContainer = null;
+
+  if (originalButton) {
+    console.log("Cloning button container before header replacement...");
+    clonedButtonContainer = cloneNewChatButton(); // This now returns the container
+    console.log("Button container cloned successfully:", clonedButtonContainer);
+  } else {
+    console.log("Original new chat button not found before header replacement");
+  }
+
   // Create the new FUE-style header
   const fueHeader = document.createElement("nav");
   fueHeader.className = "navbar navbar-expand-lg navbar-dark fue-custom-header";
@@ -209,9 +328,10 @@ function addFUEHeader() {
   fueHeader.innerHTML = `
     <div class="container-fluid">
       <div class="header-layout">
-        <!-- Logo on the left -->
+        <!-- Logo and cloned button on the left -->
         <div class="header-left">
-          <img src="/public/fue-red-logo.jpg" alt="Ask Nour Logo" class="brand-logo" onerror="this.style.display='none'">
+          <div id="new-chat-container" class="header-button-container"></div>
+          <img src="/public/fue-white-logo.png" alt="Ask Nour Logo" class="brand-logo" onerror="this.style.display='none'">
         </div>
         
         <!-- Ask Nour text in the middle -->
@@ -232,6 +352,18 @@ function addFUEHeader() {
 
   // Replace the existing header
   existingHeader.parentNode.replaceChild(fueHeader, existingHeader);
+
+  // THEN: Add the cloned button container to the new header immediately
+  if (clonedButtonContainer) {
+    const buttonContainer = document.querySelector("#new-chat-container");
+    if (buttonContainer) {
+      buttonContainer.appendChild(clonedButtonContainer);
+      console.log("Cloned new chat button container added to new header");
+      console.log("Button container content:", buttonContainer.innerHTML);
+    } else {
+      console.log("Button container not found in new header");
+    }
+  }
 
   console.log("FUE header added successfully");
 }
@@ -285,17 +417,17 @@ function addFUEHeaderStyles() {
         width: 100%;
       }
 
-      /* Left section - Logo */
+      /* Left section - Logo and cloned button */
       .header-left {
         justify-self: start;
         display: flex;
         align-items: center;
+        gap: 0.75rem;
       }
 
       .brand-logo {
         height: 35px;
         object-fit: cover;
-        border: 1px solid var(--fue-white);
         box-shadow: 0 1px 4px rgba(0,0,0,0.1);
       }
 
@@ -327,6 +459,37 @@ function addFUEHeaderStyles() {
         display: flex;
         align-items: center;
         gap: 0.75rem;
+      }
+
+      /* Header button container for cloned buttons */
+      .header-button-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      /* Styling for cloned new chat button in header */
+      #header-new-chat-button {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: var(--fue-white) !important;
+        border-radius: 6px !important;
+        transition: all 0.3s ease !important;
+        backdrop-filter: blur(10px) !important;
+        padding: 6px 8px !important;
+        font-size: 0.875rem !important;
+      }
+
+      #header-new-chat-button:hover {
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-color: rgba(255, 255, 255, 0.3) !important;
+        transform: translateY(-1px) !important;
+      }
+
+      #header-new-chat-button svg,
+      #header-new-chat-button * {
+        color: var(--fue-white) !important;
+        fill: var(--fue-white) !important;
       }
 
       /* Navbar text */
@@ -387,6 +550,11 @@ function addFUEHeaderStyles() {
           padding: 4px 8px;
           font-size: 0.7rem;
         }
+
+        #header-new-chat-button {
+          width: 32px !important;
+          height: 32px !important;
+        }
       }
 
       @media (max-width: 576px) {
@@ -412,95 +580,117 @@ function addFUEHeaderStyles() {
           height: 25px;
           width: 25px;
         }
+
+        #header-new-chat-button {
+          width: 28px !important;
+          height: 28px !important;
+        }
+
+        .header-button-container {
+          gap: 0.25rem;
+        }
       }
 
       /* Ensure Bootstrap Icons work */
       @import url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css');
 
-      /* Contact and Logo styling aligned with input field */
-      .fue-contact-phone {
-        position: fixed;
-        bottom: 17px;
-        left: 20px;
+      /* Bottom strip styling - positioned after input */
+      .fue-bottom-strip {
+        background: linear-gradient(90deg, var(--fue-burgundy) 0%, var(--fue-burgundy-dark) 100%);
+        border-top: 2px solid var(--fue-burgundy-dark);
+        padding: 0 1rem;
+        width: 100vw;
+        box-shadow: var(--fue-shadow-md);
+        z-index: 100;
+        transform: translateY(15px);
+      }
+
+      .strip-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        max-width: 1200px;
+        margin: 0 auto;
+        gap: 1rem;
+      }
+
+      .strip-left {
         display: flex;
         align-items: center;
-        justify-content: center;
-        padding: 0.75rem 1rem;
-        background: linear-gradient(90deg, var(--fue-burgundy) 0%, var(--fue-burgundy-dark) 100%);
-        color: var(--fue-white);
-        border-radius: 25px;
-        font-weight: var(--fue-font-weight-bold);
-        box-shadow: var(--fue-shadow-md);
-        border: 2px solid var(--fue-burgundy-dark);
-        z-index: 1000;
-        white-space: nowrap;
-        transition: transform 0.3s ease, opacity 0.3s ease;
-        height: 60px;
       }
 
-      .fue-contact-phone:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(174, 15, 10, 0.25);
-      }
-
-      .fue-contact-phone .contact-info {
+      .strip-left .contact-info {
         display: flex;
         flex-direction: column;
         gap: 0.2rem;
-        text-align: center;
+        text-align: left;
       }
 
-      .fue-contact-phone .phone-line {
+      .strip-left .phone-line {
         display: flex;
         align-items: center;
-        justify-content: center;
         gap: 0.5rem;
       }
 
-      .fue-contact-phone .phone-symbol {
-        font-size: 1.2rem;
+      .strip-left .phone-symbol {
+        font-size: 1.1rem;
         color: var(--fue-white);
       }
 
-      .fue-contact-phone .phone-number {
-        font-size: 1rem;
+      .strip-left .phone-number {
+        font-size: 0.95rem;
+        font-weight: var(--fue-font-weight-bold);
+        color: var(--fue-white);
         letter-spacing: 0.5px;
       }
 
-      .fue-contact-phone .website-line {
+      .strip-left .website-line {
         display: flex;
-        justify-content: center;
       }
 
-      .fue-contact-phone .website {
-        font-size: 0.85rem;
+      .strip-left .website {
+        font-size: 0.8rem;
+        color: var(--fue-white);
         opacity: 0.9;
         font-weight: 500;
       }
 
-      .fue-footer-logo {
-        position: fixed;
-        bottom: 17px;
-        right: 20px;
+      .strip-right {
         display: flex;
         align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        height: 60px;
+        justify-content: flex-end;
       }
 
-      .fue-footer-logo .footer-brand-logo {
-        height: 60px;
+      .strip-brand-logo {
+        height: 45px;
         width: auto;
-        max-width: 230px;
+        max-width: 200px;
         object-fit: contain;
       }
 
-      /* Hide contact and logo on medium and small screens */
-      @media (max-width: 1200px) {
-        .fue-contact-phone,
-        .fue-footer-logo {
-          display: none !important;
+      /* Hide strip on small screens to avoid overcrowding */
+      @media (max-width: 768px) {
+        .fue-bottom-strip {
+          padding: 0 0.75rem;
+        }
+        
+        .strip-left .phone-number {
+          font-size: 0.85rem;
+        }
+        
+        .strip-left .website {
+          font-size: 0.75rem;
+        }
+        
+        .strip-brand-logo {
+          height: 35px;
+          max-width: 150px;
+        }
+      }
+
+      @media (max-width: 576px) {
+        .fue-bottom-strip {
+          display: none;
         }
       }
 
@@ -703,6 +893,7 @@ function addAskNourBranding() {
 // Main initialization function
 function initializeAskNourCustomizations() {
   addDirAutoToArticles();
+  replaceOverflowClass();
   addFUEHeaderStyles();
   addFUEHeader();
   addFUEFooter();
@@ -711,6 +902,7 @@ function initializeAskNourCustomizations() {
   // Delay chat input modification to ensure elements are loaded
   setTimeout(() => {
     modifyChatInputLayout();
+    replaceOverflowClass(); // Run again after delay
   }, 500);
 
   // Run hideBuiltWithChainlit periodically to catch late-loading elements
@@ -743,15 +935,17 @@ const observer = new MutationObserver((mutations) => {
         shouldUpdateHeader = true;
       }
 
-      // Check if the page content is loaded and footer elements don't exist
+      // Check if the page content is loaded and bottom strip doesn't exist
       if (
         addedNodes.some(
           (node) =>
             node.nodeType === Node.ELEMENT_NODE &&
             (node.classList.contains("relative") ||
-              node.querySelector(".relative"))
+              node.querySelector(".relative") ||
+              node.id === "message-composer" ||
+              node.querySelector("#message-composer"))
         ) &&
-        !document.querySelector(".fue-contact-phone")
+        !document.querySelector(".fue-bottom-strip")
       ) {
         shouldUpdateFooter = true;
       }
@@ -788,10 +982,35 @@ const observer = new MutationObserver((mutations) => {
     setTimeout(() => {
       modifyChatInputLayout();
       hideBuiltWithChainlit();
+      replaceOverflowClass(); // Also check for overflow class replacement
+
+      // Try to add cloned new chat button if header exists but button is missing
+      const buttonContainer = document.querySelector("#new-chat-container");
+      const existingClonedButton = document.querySelector(
+        "#header-new-chat-button"
+      );
+      const originalButton = document.querySelector("#new-chat-button");
+
+      console.log("Mutation observer check:", {
+        buttonContainer: !!buttonContainer,
+        existingClonedButton: !!existingClonedButton,
+        originalButton: !!originalButton,
+      });
+
+      if (buttonContainer && !existingClonedButton && originalButton) {
+        const clonedButtonContainer = cloneNewChatButton();
+        if (clonedButtonContainer) {
+          buttonContainer.appendChild(clonedButtonContainer);
+          console.log(
+            "Cloned new chat button container added to header via mutation observer"
+          );
+        }
+      }
     }, 200);
   }
 
   addDirAutoToArticles();
+  replaceOverflowClass(); // Run on every mutation to catch new elements
 });
 
 observer.observe(document.body, {
